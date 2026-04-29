@@ -1,0 +1,7 @@
+atlassian:
+  auth_url: "https://auth.atlassian.com/authorize"
+  token_url: "https://auth.atlassian.com/oauth/token"
+  api_base: "https://api.atlassian.com/ex/jira/%s/rest/api/3"
+
+server:
+  callback_url: "http://localhost:8080/callback"
