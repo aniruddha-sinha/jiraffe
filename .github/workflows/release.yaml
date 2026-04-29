@@ -1,0 +1,33 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*.*.*" 
+
+jobs:
+  goreleaser:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write 
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 
+
+      - name: Setup mise and install tools
+        uses: jdx/mise-action@v2
+        with:
+          version: "2026.4.22" # this is temporary
+          install: true
+
+      - name: Run GoReleaser
+        uses: goreleaser/goreleaser-action@v5
+        with:
+          version: latest
+          args: release --clean
+        env:
+          # Automatically provided by GitHub Actions to authenticate the upload
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
