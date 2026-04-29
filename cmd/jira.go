@@ -10,10 +10,6 @@ var newJiraCmd = &cobra.Command{
 	Use:     "jira",
 	Aliases: []string{"j"},
 	Short:   "subcommand for JIRA",
-	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("jira called")
-		return nil
-	},
 }
 
 var newAuthCmd = &cobra.Command{
