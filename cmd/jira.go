@@ -18,6 +18,7 @@ var newAuthCmd = &cobra.Command{
 	Short:   "subcommand for auth",
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("auth called")
+
 		return nil
 	},
 }
