@@ -57,7 +57,7 @@ if [ -z "$(find . -name '*_test.go' -print -quit)" ]; then
 fi
 
 echo "Tests found. Compiling binary..."
-go build -o bin/myapp-$(uname -s | tr 'A-Z' 'a-z')-$(uname -m) .
+go build -o bin/jiraffe-$(uname -s | tr 'A-Z' 'a-z')-$(uname -m) .
 """
 
 [tasks.all]
