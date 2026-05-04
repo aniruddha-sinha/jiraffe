@@ -33,7 +33,17 @@ var newAuthCmd = &cobra.Command{
 			Email: email,
 			Org:   org,
 		}
-		return profile.HandleAuthentication()
+
+		isAuthenticated, err := profile.HandleAuthentication()
+		if err != nil {
+			return err
+		}
+
+		if isAuthenticated {
+			fmt.Println("Authentication successful; Credentials saved in ~/.config/jiraffe/config.yaml")
+		}
+
+		return nil
 	},
 }
 

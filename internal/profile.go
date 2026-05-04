@@ -10,21 +10,21 @@ import (
 
 const APPLICATION_NAME = "jiraffe"
 
-func GetPaths(org string) (ProfilePath, error) {
+func getPaths() (ProfilePath, error) {
 	XDGConfigDir, err := os.UserConfigDir()
 	if err != nil {
 		return ProfilePath{}, fmt.Errorf("could not find the user config directory %w", err)
 	}
 
-	dirPath := filepath.Join(XDGConfigDir, APPLICATION_NAME, org)
+	dirPath := filepath.Join(XDGConfigDir, APPLICATION_NAME)
 	return ProfilePath{
 		DirPath:  dirPath,
-		FilePath: filepath.Join(dirPath, "config.json"),
+		FilePath: filepath.Join(dirPath, "config.yaml"),
 	}, nil
 }
 
-func LoadProfileConfig(org string) error {
-	paths, err := GetPaths(org)
+func loadProfileConfig() error {
+	paths, err := getPaths()
 	if err != nil {
 		return err
 	}
@@ -34,7 +34,7 @@ func LoadProfileConfig(org string) error {
 }
 
 func Save(p UserProfile, encodedToken string) (string, error) {
-	paths, err := GetPaths(p.Org)
+	paths, err := getPaths()
 	if err != nil {
 		return "", err
 	}

@@ -36,7 +36,7 @@ if [ -z "$(find . -name '*_test.go' -print -quit)" ]; then
   exit 0
 fi
 
-go test ./internal/jira -v -coverprofile=test-coverage/cover.out || echo "⚠️ Tests failed, but continuing to report..."
+go test ./internal -v -coverprofile=test-coverage/cover.out || echo "⚠️ Tests failed, but continuing to report..."
 """
 
 [tasks."test:coverage"]
