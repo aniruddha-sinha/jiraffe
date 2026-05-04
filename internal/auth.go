@@ -3,8 +3,10 @@ package internal
 import (
 	"encoding/base64"
 	"fmt"
+	"net/http"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/spf13/viper"
 	"golang.org/x/term"
@@ -22,12 +24,15 @@ import (
 ** //? config gets saved
 **/
 
+var readPasswordFunc = term.ReadPassword
+
 func getLocalToken(p UserProfile) (bool, error) {
 	if err := loadProfileConfig(); err != nil {
 		return false, err
 	}
 
-	isTokenValid, err := IsTokenValid(p, viper.GetString("auth.encoded_token"))
+	client := &http.Client{Timeout: 10 * time.Second}
+	isTokenValid, err := IsTokenValid(p, client, viper.GetString("auth.encoded_token"))
 	if err != nil {
 		return false, err
 	}
@@ -39,7 +44,7 @@ func obtainEncodedTokenFromUser(p UserProfile) (string, error) {
 	fmt.Println("Click on this link to generate API token: https://id.atlassian.com/manage-profile/security/api-tokens")
 
 	fmt.Print("Enter API token: ")
-	bytePassword, err := term.ReadPassword(int(syscall.Stdin))
+	bytePassword, err := readPasswordFunc(int(syscall.Stdin))
 	if err != nil {
 		return "", fmt.Errorf("\nfailed to read token: %w", err)
 	}
@@ -58,7 +63,7 @@ func getWebToken(p UserProfile) (bool, error) {
 		return false, err
 	}
 
-	isValid, err := IsTokenValid(p, encodedToken)
+	isValid, err := IsTokenValid(p, &http.Client{Timeout: 10 * time.Second}, encodedToken)
 	if err != nil {
 		return false, fmt.Errorf("verification failed: %w", err)
 	}

@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/spf13/viper"
 )
@@ -29,7 +28,7 @@ func BuildURL(org, endpointTemplate string) string {
 	return baseURL + endpoint
 }
 
-func IsTokenValid(p UserProfile, encodedAPItoken string) (bool, error) {
+func IsTokenValid(p UserProfile, client HTTPClient, encodedAPItoken string) (bool, error) {
 	// isTokenValid() ==then move on] otherwise ask user to scratch his head
 	ctx := context.Background()
 
@@ -42,10 +41,6 @@ func IsTokenValid(p UserProfile, encodedAPItoken string) (bool, error) {
 	r.Header.Add("Authorization", "Basic "+encodedAPItoken) //! there should be a SPACE post Basic if token is dingDong then the Authorization
 	//! is BasicdingDong which cannot be parsed by JIRA servers
 	r.Header.Add("Accept", "application/json")
-
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
 
 	resp, err := client.Do(r)
 	if err != nil {
