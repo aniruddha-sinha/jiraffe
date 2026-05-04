@@ -51,7 +51,7 @@ func Save(p UserProfile, encodedToken string) (string, error) {
 	viper.Set("auth.org", p.Org)
 	viper.Set("auth.encoded_token", encodedToken)
 
-	if err := viper.WriteConfig(); err != nil {
+	if err := viper.WriteConfigAs(paths.FilePath); err != nil {
 		return "", fmt.Errorf("failed to save the config file %w", err)
 	}
 

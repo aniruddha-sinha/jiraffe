@@ -7,6 +7,7 @@ golangci-lint = "2.11.4"
 hk = "1.43.0"
 pkl = "latest"
 watchexec = "latest"
+"go:go.uber.org/mock/mockgen" = "latest"
 
 [tasks.clean]
 description = "Remove old binaries and coverage reports"
@@ -31,12 +32,22 @@ mkdir -p test-coverage
 # Look for at least one test file efficiently
 if [ -z "$(find . -name '*_test.go' -print -quit)" ]; then
   echo "⚠️  WARNING: No test files found. Skipping tests."
-  # Create an empty/placeholder coverage file so the HTML tool doesn't crash
   echo "mode: set" > test-coverage/cover.out
   exit 0
 fi
 
-go test ./internal -v -coverprofile=test-coverage/cover.out || echo "⚠️ Tests failed, but continuing to report..."
+# 1. Run tests and capture the exit code (do not exit yet)
+go test ./internal -v -coverprofile=test-coverage/cover.out
+TEST_EXIT_CODE=$?
+
+# 2. Generate HTML report regardless of test success/failure
+go tool cover -html=test-coverage/cover.out -o test-coverage/index.html
+
+# 3. If tests failed, fail the mise task now so the build doesn't run
+if [ $TEST_EXIT_CODE -ne 0 ]; then
+  echo "❌ Tests failed! Halting pipeline."
+  exit $TEST_EXIT_CODE
+fi
 """
 
 [tasks."test:coverage"]
