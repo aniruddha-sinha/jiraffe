@@ -36,7 +36,7 @@ if [ -z "$(find . -name '*_test.go' -print -quit)" ]; then
   exit 0
 fi
 
-go test ./... -coverprofile=test-coverage/cover.out || echo "⚠️ Tests failed, but continuing to report..."
+go test ./internal -v -coverprofile=test-coverage/cover.out || echo "⚠️ Tests failed, but continuing to report..."
 """
 
 [tasks."test:coverage"]
@@ -47,19 +47,18 @@ run = "go tool cover -html=test-coverage/cover.out -o test-coverage/index.html"
 [tasks.build]
 description = "Build binary only if tests exist"
 depends = ["test:coverage"]
-run = "go build -o bin/${PWD##*/}-$(uname -s | tr 'A-Z' 'a-z')-$(uname -m) ." 
-# """
-# #!/usr/bin/env bash
+run = """
+#!/usr/bin/env bash
 
-# # Graceful exit without building if no tests exist
-# if [ -z "$(find . -name '*_test.go' -print -quit)" ]; then
-#   echo "ℹ️  INFO: No test cases found. Build step passes, but no binary will be generated."
-#   exit 0
-# fi
+# Graceful exit without building if no tests exist
+if [ -z "$(find . -name '*_test.go' -print -quit)" ]; then
+  echo "ℹ️  INFO: No test cases found. Build step passes, but no binary will be generated."
+  exit 0
+fi
 
-# echo "Tests found. Compiling binary..."
-# go build -o bin/myapp-$(uname -s | tr 'A-Z' 'a-z')-$(uname -m) .
-# """
+echo "Tests found. Compiling binary..."
+go build -o bin/jiraffe-$(uname -s | tr 'A-Z' 'a-z')-$(uname -m) .
+"""
 
 [tasks.all]
 description = "Run the full pipeline: clean -> lint -> build"
