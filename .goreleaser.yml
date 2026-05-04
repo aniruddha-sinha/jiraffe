@@ -10,7 +10,7 @@ builds:
       - amd64
       - arm64
     # GoReleaser will automatically replace these variables for each build
-    binary: gostart-{{ .Os }}-{{ .Arch }}
+    binary: jiraffe-{{ .Os }}-{{ .Arch }}
 
 # Automatically generates a clean changelog based on your git commits
 changelog:
