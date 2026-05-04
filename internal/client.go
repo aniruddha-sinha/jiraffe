@@ -2,6 +2,7 @@ package internal
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
@@ -30,7 +31,6 @@ func BuildURL(org, endpointTemplate string) string {
 
 func IsTokenValid(p UserProfile, encodedAPItoken string) (bool, error) {
 	// isTokenValid() ==then move on] otherwise ask user to scratch his head
-
 	ctx := context.Background()
 
 	url := BuildURL(p.Org, EndpointMyself)
@@ -39,7 +39,8 @@ func IsTokenValid(p UserProfile, encodedAPItoken string) (bool, error) {
 		return false, err
 	}
 
-	r.Header.Add("Authorization", "Basic"+encodedAPItoken)
+	r.Header.Add("Authorization", "Basic "+encodedAPItoken) //! there should be a SPACE post Basic if token is dingDong then the Authorization
+	//! is BasicdingDong which cannot be parsed by JIRA servers
 	r.Header.Add("Accept", "application/json")
 
 	client := &http.Client{
@@ -60,7 +61,7 @@ func IsTokenValid(p UserProfile, encodedAPItoken string) (bool, error) {
 	}
 
 	if resp.StatusCode == http.StatusUnauthorized {
-		return true, nil
+		return false, errors.New("unauthorized; might be faulty token")
 	}
 
 	return false, fmt.Errorf("unexpected status code %d", resp.StatusCode)
