@@ -1,15 +1,12 @@
 package internal
 
 import (
-	"errors"
-	"io"
 	"net/http"
-	"strings"
+	"net/http/httptest"
+	"net/url"
 	"testing"
 
-	"github.com/aniruddha-sinha/jiraffe/mocks"
 	"github.com/spf13/viper"
-	"go.uber.org/mock/gomock"
 )
 
 func TestBuildURL(t *testing.T) {
@@ -67,89 +64,95 @@ func TestBuildURL(t *testing.T) {
 	viper.Reset()
 }
 
-func TestIsTokenValid_WithGomock(t *testing.T) {
-	// 1. Initialize gomock controller
-	ctrl := gomock.NewController(t)
-	defer ctrl.Finish()
+type mockTestClient struct {
+	client  *http.Client
+	testURL string
+}
 
+func (m *mockTestClient) Do(req *http.Request) (*http.Response, error) {
+	// Intercept the request and redirect it to the httptest server
+	parsedTestURL, _ := url.Parse(m.testURL)
+	req.URL.Scheme = parsedTestURL.Scheme
+	req.URL.Host = parsedTestURL.Host
+	req.Host = parsedTestURL.Host
+
+	//nolint:gosec // Safe: This is a test interceptor routing to a local httptest server
+	return m.client.Do(req)
+}
+
+func TestIsTokenValid(t *testing.T) {
+	// Define table-driven test cases
 	tests := []struct {
-		name          string
-		encodedToken  string
-		setupMock     func(mockClient *mocks.MockHTTPClient)
-		wantValid     bool
-		wantErr       bool
-		errorContains string
+		name           string
+		statusCode     int
+		token          string
+		expectedResult bool
+		expectErr      bool
 	}{
 		{
-			name:         "Valid token returns 200 OK",
-			encodedToken: "validDingDong",
-			setupMock: func(mockClient *mocks.MockHTTPClient) {
-				// Tell gomock: Expect 'Do' to be called once, with any request.
-				// Return a mock Response with a 200 status code.
-				mockResponse := &http.Response{
-					StatusCode: http.StatusOK,
-					// You must provide a dummy body because the function calls resp.Body.Close()
-					Body: io.NopCloser(strings.NewReader("")),
-				}
-				mockClient.EXPECT().Do(gomock.Any()).Return(mockResponse, nil).Times(1)
-			},
-			wantValid: true,
-			wantErr:   false,
+			name:           "Valid Token Returns 200 OK",
+			statusCode:     http.StatusOK,
+			token:          "validToken123",
+			expectedResult: true,
+			expectErr:      false,
 		},
 		{
-			name:         "Faulty token returns 401",
-			encodedToken: "invalidDingDong",
-			setupMock: func(mockClient *mocks.MockHTTPClient) {
-				mockResponse := &http.Response{
-					StatusCode: http.StatusUnauthorized,
-					Body:       io.NopCloser(strings.NewReader("")),
-				}
-				mockClient.EXPECT().Do(gomock.Any()).Return(mockResponse, nil).Times(1)
-			},
-			wantValid:     false,
-			wantErr:       true,
-			errorContains: "unauthorized",
+			name:           "Invalid Token Returns 401 Unauthorized",
+			statusCode:     http.StatusUnauthorized,
+			token:          "dingDong",
+			expectedResult: false,
+			expectErr:      true,
 		},
 		{
-			name:         "Client network error",
-			encodedToken: "anyToken",
-			setupMock: func(mockClient *mocks.MockHTTPClient) {
-				// Simulate an actual network failure (e.g., DNS resolution failed)
-				mockClient.EXPECT().Do(gomock.Any()).Return(nil, errors.New("network timeout")).Times(1)
-			},
-			wantValid:     false,
-			wantErr:       true,
-			errorContains: "network timeout",
+			name:           "Unexpected Server Error Returns 500",
+			statusCode:     http.StatusInternalServerError,
+			token:          "someToken",
+			expectedResult: false,
+			expectErr:      true,
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// 2. Create a new instance of the mock client for this specific test
-			mockClient := mocks.NewMockHTTPClient(ctrl)
-
-			// 3. Set up the expected behavior for this test case
-			tt.setupMock(mockClient)
-
-			p := UserProfile{Org: "test-org"}
-
-			// 4. Call the function, passing in the mock client
-			valid, err := IsTokenValid(p, mockClient, tt.encodedToken)
-
-			// 5. Assertions
-			if valid != tt.wantValid {
-				t.Errorf("IsTokenValid() valid = %v, want %v", valid, tt.wantValid)
-			}
-
-			if (err != nil) != tt.wantErr {
-				t.Errorf("IsTokenValid() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-
-			if tt.wantErr && err != nil && tt.errorContains != "" {
-				if !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("IsTokenValid() error = %v, expected it to contain %v", err, tt.errorContains)
+			// 1. Spin up the httptest Server
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				// Assert: Check if the required headers are being set correctly
+				expectedAuth := "Basic " + tt.token
+				if auth := r.Header.Get("Authorization"); auth != expectedAuth {
+					t.Errorf("Expected Authorization header '%s', got '%s'", expectedAuth, auth)
 				}
+
+				if accept := r.Header.Get("Accept"); accept != "application/json" {
+					t.Errorf("Expected Accept header 'application/json', got '%s'", accept)
+				}
+
+				// Respond with the mock status code defined in our test table
+				w.WriteHeader(tt.statusCode)
+			}))
+			// Ensure the server is closed when the test finishes
+			defer server.Close()
+
+			// 2. Setup mock data
+			profile := UserProfile{
+				Org: "test-org", // BuildURL will use this, but our mock client will intercept it
+			}
+
+			// Wrap the httptest client in our interceptor so requests are routed locally
+			interceptClient := &mockTestClient{
+				client:  server.Client(),
+				testURL: server.URL,
+			}
+
+			// 3. Execute the target function
+			isValid, err := IsTokenValid(profile, interceptClient, tt.token)
+
+			// 4. Assert the outcomes
+			if isValid != tt.expectedResult {
+				t.Errorf("Expected isValid to be %v, got %v", tt.expectedResult, isValid)
+			}
+
+			if (err != nil) != tt.expectErr {
+				t.Errorf("Expected error presence to be %v, got err: %v", tt.expectErr, err)
 			}
 		})
 	}

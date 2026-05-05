@@ -7,7 +7,6 @@ golangci-lint = "2.11.4"
 hk = "1.43.0"
 pkl = "latest"
 watchexec = "latest"
-"go:go.uber.org/mock/mockgen" = "latest"
 
 [tasks.clean]
 description = "Remove old binaries and coverage reports"
@@ -55,6 +54,10 @@ description = "Generate HTML coverage report"
 depends = ["test:run"]
 run = "go tool cover -html=test-coverage/cover.out -o test-coverage/index.html"
 
+[tasks.critic]
+description = "Run go-critic linter on all packages"
+run = "gocritic check ./..."
+
 [tasks.build]
 description = "Build binary only if tests exist"
 depends = ["test:coverage"]
@@ -73,7 +76,7 @@ go build -o bin/jiraffe-$(uname -s | tr 'A-Z' 'a-z')-$(uname -m) .
 
 [tasks.all]
 description = "Run the full pipeline: clean -> lint -> build"
-depends = ["clean", "lint", "build"]
+depends = ["clean", "lint", "critic", "build"]
 
 [env]
 HK_MISE=1
