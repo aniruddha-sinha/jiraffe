@@ -33,6 +33,7 @@ linters:
     - bodyclose     # Checks whether HTTP response bodies are closed successfully (prevents memory leaks).
     - gosec         # Inspects source code for security problems (hardcoded credentials, bad crypto, etc.).
     - noctx         # Finds HTTP requests sent without context.Context.
+    - gocritic
   
   settings:
     gosec:
