@@ -59,18 +59,11 @@ description = "Run go-critic linter on all packages"
 run = "gocritic check ./..."
 
 [tasks.build]
-description = "Build binary only if tests exist"
+description = "Build binary"
 depends = ["test:coverage"]
 run = """
 #!/usr/bin/env bash
-
-# Graceful exit without building if no tests exist
-if [ -z "$(find . -name '*_test.go' -print -quit)" ]; then
-  echo "ℹ️  INFO: No test cases found. Build step passes, but no binary will be generated."
-  exit 0
-fi
-
-echo "Tests found. Compiling binary..."
+echo "Compiling binary..."
 go build -o bin/jiraffe-$(uname -s | tr 'A-Z' 'a-z')-$(uname -m) .
 """
 

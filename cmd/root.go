@@ -1,24 +1,48 @@
-/**
-* *! Aniruddha Sinha
-**/
 package cmd
 
 import (
+	"fmt"
+	"log"
 	"os"
 
+	"github.com/aniruddha-sinha/jiraffe/internal/config"
 	"github.com/spf13/cobra"
 )
 
-var rootCmd = &cobra.Command{
-	Use:   "jiraffe",
-	Short: "A CLI application to interact with Atlassian (JIRA)",
-}
+const (
+	configFile = "config.yaml"
+	appName    = "jiraffe"
+)
 
-func Execute() {
-	err := rootCmd.Execute()
-	if err != nil {
-		os.Exit(1)
+func NewJiraffeCommand() *cobra.Command {
+	config.Cfg = config.New()
+	if err := config.Cfg.InitConfig(appName, configFile); err != nil {
+		log.Fatal("failed to load config file. %w", err)
 	}
-}
 
-func init() {}
+	cmd := &cobra.Command{
+		PersistentPreRun: func(cmd *cobra.Command, args []string) {
+			if os.Geteuid() == 0 {
+				log.Println("running the jiraffe as a root can be dangerous")
+			}
+		},
+		Run: func(cmd *cobra.Command, args []string) {
+			if err := cmd.Help(); err != nil {
+				fmt.Print(err)
+			}
+		},
+		Use:           "jiraffe",
+		Short:         "jiraffe is a suite of tools for interacting with atlassian products such as jira, confluence",
+		SilenceErrors: true,
+		SilenceUsage:  true,
+	}
+
+	cmd.AddCommand(
+		newJiraCmd(),
+	)
+
+	cmd.SetOut(os.Stdout)
+	cmd.SetErr(os.Stderr)
+
+	return cmd
+}

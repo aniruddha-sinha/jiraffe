@@ -1,10 +1,15 @@
-/*
-Copyright © 2026 NAME HERE <EMAIL ADDRESS>
-*/
 package main
 
-import "github.com/aniruddha-sinha/jiraffe/cmd"
+import (
+	"fmt"
+	"os"
+
+	"github.com/aniruddha-sinha/jiraffe/cmd"
+)
 
 func main() {
-	cmd.Execute()
+	if err := cmd.NewJiraffeCommand().Execute(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(1)
+	}
 }
