@@ -12,18 +12,23 @@ type profile struct {
 	org   string
 }
 
-func NewProfile(email, org string) (*profile, error) {
-	if err := validate(email); err != nil {
-		return &profile{}, err
+// NewProfile is the only way to construct a Profile.
+// It guarantees the returned Profile is perfectly valid.
+func NewProfile(email, org string) (profile, error) {
+	if _, err := mail.ParseAddress(email); err != nil {
+		return profile{}, ErrInvalidEmail
 	}
-	return &profile{email: email, org: org}, nil
+
+	return profile{
+		email: email,
+		org:   org,
+	}, nil
 }
 
-func validate(email string) error {
-	_, err := mail.ParseAddress(email)
-	if err != nil {
-		return ErrInvalidEmail
-	}
+func (p profile) Email() string {
+	return p.email
+}
 
-	return nil
+func (p profile) Org() string {
+	return p.org
 }

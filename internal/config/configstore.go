@@ -28,29 +28,38 @@ var (
 )
 
 func (c *config) InitConfig(appName, configFile string) error {
-	// determine the base config path
 	baseConfigPath, err := os.UserConfigDir()
 	if err != nil {
 		return ErrConfigDirNotFound
 	}
 
-	// frame the application config path where appConfigPath = baseConfigPath + appName
 	appConfigDirPath := filepath.Join(baseConfigPath, appName)
 	appConfigFilePath := filepath.Join(appConfigDirPath, configFile)
 
-	// create the base directories regardless of their presence (stat); os.MkdirAll is an idempotent process
-	// which works just like mkdir -p
 	if err := os.MkdirAll(appConfigDirPath, fs.FileMode(0o755)); err != nil {
 		return ErrFailedDirectoryCreation
 	}
 
-	// once the dir creation succeeds; we will move towards config file creation
-	file, err := os.OpenFile(appConfigFilePath, os.O_RDWR|os.O_CREATE|os.O_TRUNC, 0o600)
+	file, err := os.OpenFile(appConfigFilePath, os.O_RDWR|os.O_CREATE, 0o600)
 	if err != nil {
 		return fmt.Errorf("failed to create config file: %w", err)
 	}
+	file.Close() // nolint: errcheck
 
-	defer file.Close() //nolint:errcheck // TODO: check error and return
+	c.SetConfigFile(appConfigFilePath)
+
+	c.SetConfigType("yaml")
+
+	if err := c.ReadInConfig(); err != nil {
+		var emptyErr viper.ConfigFileNotFoundError
+
+		if !errors.As(err, &emptyErr) {
+			fileInfo, statErr := os.Stat(appConfigFilePath)
+			if statErr == nil && fileInfo.Size() > 0 {
+				return fmt.Errorf("failed to parse config file: %w", err)
+			}
+		}
+	}
 
 	return nil
 }
@@ -69,7 +78,7 @@ func (c *config) Upsert(k, v string) error {
 	c.Set(k, v)
 
 	if err := c.WriteConfig(); err != nil {
-		return ErrConfigFileWrite
+		return fmt.Errorf("%w: %w", ErrConfigFileWrite, err)
 	}
 
 	return nil

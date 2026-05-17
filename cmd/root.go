@@ -10,20 +10,19 @@ import (
 )
 
 const (
-	configFile = "config.yaml"
+	configFile = "config.yaml" // Note: Earlier we used credentials.json, make sure Viper knows to parse YAML if you use .yaml!
 	appName    = "jiraffe"
 )
 
 func NewJiraffeCommand() *cobra.Command {
-	config.Cfg = config.New()
-	if err := config.Cfg.InitConfig(appName, configFile); err != nil {
-		log.Fatal("failed to load config file. %w", err)
-	}
-
 	cmd := &cobra.Command{
+		Use:           "jiraffe",
+		Short:         "jiraffe is a suite of tools for interacting with atlassian products such as jira, confluence",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if os.Geteuid() == 0 {
-				log.Println("running the jiraffe as a root can be dangerous")
+				log.Println("⚠️  Warning: running jiraffe as root can be dangerous")
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -31,11 +30,17 @@ func NewJiraffeCommand() *cobra.Command {
 				fmt.Print(err)
 			}
 		},
-		Use:           "jiraffe",
-		Short:         "jiraffe is a suite of tools for interacting with atlassian products such as jira, confluence",
-		SilenceErrors: true,
-		SilenceUsage:  true,
 	}
+
+	// cobra.OnInitialize ensures the config is only loaded when a command actually runs,
+	// preventing disk writes during simple tasks like 'jiraffe --help'
+	cobra.OnInitialize(func() {
+		config.Cfg = config.New()
+		if err := config.Cfg.InitConfig(appName, configFile); err != nil {
+			// Fixed to log.Fatalf and %v
+			log.Fatalf("failed to load config file: %v", err)
+		}
+	})
 
 	cmd.AddCommand(
 		newJiraCmd(),
