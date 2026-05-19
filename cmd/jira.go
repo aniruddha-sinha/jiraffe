@@ -1,6 +1,11 @@
 package cmd
 
 import (
+	"fmt"
+
+	"github.com/aniruddha-sinha/jiraffe/internal/config"
+	"github.com/aniruddha-sinha/jiraffe/internal/jira"
+	"github.com/go-playground/validator/v10"
 	"github.com/spf13/cobra"
 )
 
@@ -23,6 +28,8 @@ func newAuthCmd() *cobra.Command {
 		org   string
 	)
 
+	validate := validator.New()
+
 	const (
 		defaultJiraOrg = "asinha0493"
 	)
@@ -31,6 +38,41 @@ func newAuthCmd() *cobra.Command {
 		Use:     "auth",
 		Aliases: []string{"a"},
 		Short:   "Authenticate and save your Jira credentials",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			emailFlag, err := cmd.Flags().GetString("email")
+			if err != nil {
+				return err
+			}
+
+			if emailFlag != "" {
+				if err := validate.Var(emailFlag, "required,email"); err != nil {
+					return fmt.Errorf("invalid email format::: %w", err)
+				}
+			} else {
+				storedEmail := config.Cfg.GetString(jira.JiraConfigEmailKey)
+				if storedEmail == "" {
+					return fmt.Errorf("no active session found; Please provide your atlassian registered email ID with the --email flag to login for the first time")
+				}
+			}
+
+			orgFlag, err := cmd.Flags().GetString("org")
+			if err != nil {
+				return err
+			}
+
+			if orgFlag != "" {
+				if err := validate.Var(orgFlag, "required,hostname"); err != nil {
+					return fmt.Errorf("invalid jira org format ::: %w", err)
+				}
+			} else {
+				storedOrg := config.Cfg.GetString(jira.JiraConfigOrgKey)
+				if storedOrg == "" {
+					return fmt.Errorf("no jira org found, please pass on the jira org in the --org flag to login for the first time")
+				}
+			}
+
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return nil
 		},

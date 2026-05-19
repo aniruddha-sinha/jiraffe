@@ -11,7 +11,6 @@ import (
 
 const (
 	configFile = "config.yaml" // Note: Earlier we used credentials.json, make sure Viper knows to parse YAML if you use .yaml!
-	appName    = "jiraffe"
 )
 
 func NewJiraffeCommand() *cobra.Command {
@@ -22,7 +21,7 @@ func NewJiraffeCommand() *cobra.Command {
 		SilenceUsage:  true,
 		PersistentPreRun: func(cmd *cobra.Command, args []string) {
 			if os.Geteuid() == 0 {
-				log.Println("⚠️  Warning: running jiraffe as root can be dangerous")
+				log.Println("Warning /!\\ : running jiraffe as root can be dangerous")
 			}
 		},
 		Run: func(cmd *cobra.Command, args []string) {
@@ -36,7 +35,7 @@ func NewJiraffeCommand() *cobra.Command {
 	// preventing disk writes during simple tasks like 'jiraffe --help'
 	cobra.OnInitialize(func() {
 		config.Cfg = config.New()
-		if err := config.Cfg.InitConfig(appName, configFile); err != nil {
+		if err := config.Cfg.InitConfig(configFile); err != nil {
 			// Fixed to log.Fatalf and %v
 			log.Fatalf("failed to load config file: %v", err)
 		}

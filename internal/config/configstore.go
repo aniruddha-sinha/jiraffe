@@ -10,76 +10,77 @@ import (
 	"github.com/spf13/viper"
 )
 
-type config struct {
+type Config struct {
 	*viper.Viper
 }
 
-func New() *config {
-	return &config{Viper: viper.New()}
-}
-
-var Cfg *config
-
 var (
-	ErrConfigDirNotFound       = errors.New("config file not found")
-	ErrFailedDirectoryCreation = errors.New("failed to create the config directory")
-	ErrKeyNotFound             = errors.New("key not found")
-	ErrConfigFileWrite         = errors.New("error writing to config file")
+	Cfg *Config
+
+	ErrKeyNameMustNotBeEmpty = errors.New("key name must not be empty string")
+	ErrKeyNotFound           = errors.New("key not found")
 )
 
-func (c *config) InitConfig(appName, configFile string) error {
-	baseConfigPath, err := os.UserConfigDir()
+func New() *Config {
+	return &Config{Viper: viper.New()}
+}
+
+func (c *Config) InitConfig(configFile string) error {
+	configDir, err := os.UserConfigDir()
 	if err != nil {
-		return ErrConfigDirNotFound
+		return fmt.Errorf("error fetching the user config dir %w", err)
 	}
 
-	appConfigDirPath := filepath.Join(baseConfigPath, appName)
-	appConfigFilePath := filepath.Join(appConfigDirPath, configFile)
-
-	if err := os.MkdirAll(appConfigDirPath, fs.FileMode(0o755)); err != nil {
-		return ErrFailedDirectoryCreation
-	}
-
-	file, err := os.OpenFile(appConfigFilePath, os.O_RDWR|os.O_CREATE, 0o600)
+	err = os.MkdirAll(configDir, fs.FileMode(0o644))
 	if err != nil {
-		return fmt.Errorf("failed to create config file: %w", err)
+		return fmt.Errorf("error ensuring the existence of config dir %w", err)
 	}
-	file.Close() // nolint: errcheck
 
-	c.SetConfigFile(appConfigFilePath)
+	dbConfigPath := filepath.Join(configDir, configFile)
+	if _, err := os.Stat(dbConfigPath); os.IsNotExist(err) {
+		f, err := os.Create(dbConfigPath)
+		if err != nil {
+			return fmt.Errorf("failed to create config file %w", err)
+		}
 
-	c.SetConfigType("yaml")
+		if err := f.Close(); err != nil {
+			return fmt.Errorf("error closing file %w", err)
+		}
+	}
+
+	c.SetConfigFile(dbConfigPath)
 
 	if err := c.ReadInConfig(); err != nil {
-		var emptyErr viper.ConfigFileNotFoundError
+		return fmt.Errorf("failed to read config file: %w", err)
+	}
 
-		if !errors.As(err, &emptyErr) {
-			fileInfo, statErr := os.Stat(appConfigFilePath)
-			if statErr == nil && fileInfo.Size() > 0 {
-				return fmt.Errorf("failed to parse config file: %w", err)
-			}
+	return nil
+}
+
+func (c *Config) Upsert(k, v string) error {
+	if k == "" {
+		return ErrKeyNameMustNotBeEmpty
+	}
+
+	c.Set(k, v)
+
+	if err := c.WriteConfig(); err != nil {
+		if err := c.SafeWriteConfig(); err != nil {
+			return fmt.Errorf("error writing config file: %w", err)
 		}
 	}
 
 	return nil
 }
 
-func (c *config) Get(k string) (string, error) {
-	// check if the key is present
+func (c *Config) Get(k string) (string, error) {
+	if k == "" {
+		return "", ErrKeyNameMustNotBeEmpty
+	}
+
 	if !c.IsSet(k) {
-		return "", ErrKeyNotFound
+		return "", fmt.Errorf("%s: %w", k, ErrKeyNotFound)
 	}
 
-	value := c.GetString(k)
-	return value, nil
-}
-
-func (c *config) Upsert(k, v string) error {
-	c.Set(k, v)
-
-	if err := c.WriteConfig(); err != nil {
-		return fmt.Errorf("%w: %w", ErrConfigFileWrite, err)
-	}
-
-	return nil
+	return c.GetString(k), nil
 }
