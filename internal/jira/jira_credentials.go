@@ -22,6 +22,18 @@ func NewJiraCredentials(email, org, apiToken string) *JiraCredentials {
 	}
 }
 
+func (jc *JiraCredentials) Email() string {
+	return jc.email
+}
+
+func (jc *JiraCredentials) Org() string {
+	return jc.org
+}
+
+func (jc *JiraCredentials) ApiToken() string {
+	return jc.apiToken
+}
+
 func GetStoredEmail() (string, error) {
 	return config.Cfg.Get(JiraConfigEmailKey)
 }

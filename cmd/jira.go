@@ -64,6 +64,14 @@ func newAuthCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			jc := jira.NewJiraCredentials(email, org, "")
+			c := jira.NewClient()
+
+			if err := c.HandleAuthentication(cmd.Context(), jc); err != nil {
+				return err
+			}
+
+			fmt.Println("User Auth Success!!")
 			return nil
 		},
 	}
