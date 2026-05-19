@@ -3,77 +3,81 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/aniruddha-sinha/jiraffe/internal"
+	"github.com/aniruddha-sinha/jiraffe/internal/config"
+	"github.com/aniruddha-sinha/jiraffe/internal/jira"
+	"github.com/go-playground/validator/v10"
 	"github.com/spf13/cobra"
 )
 
-var (
-	email string
-	org   string
-)
+func newJiraCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "jira",
+		Aliases: []string{"j"},
+		Short:   "subcommand for calling toplevel atlassian command line",
+	}
 
-const (
-	defaultJiraOrg = "asinha0493"
-)
-
-var newJiraCmd = &cobra.Command{
-	Use:     "jira",
-	Aliases: []string{"j"},
-	Short:   "subcommand for JIRA",
+	cmd.AddCommand(
+		newAuthCmd(),
+	)
+	return cmd
 }
 
-var newAuthCmd = &cobra.Command{
-	Use:          "auth",
-	Aliases:      []string{"a"},
-	Short:        "subcommand for auth",
-	SilenceUsage: true,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("auth called")
+func newAuthCmd() *cobra.Command {
+	var (
+		email string
+		org   string
+	)
 
-		profile := internal.UserProfile{
-			Email: email,
-			Org:   org,
-		}
+	validate := validator.New()
 
-		isAuthenticated, err := profile.HandleAuthentication()
-		if err != nil {
-			return err
-		}
+	const (
+		defaultJiraOrg = "asinha0493"
+	)
 
-		if isAuthenticated {
-			fmt.Println("Authentication successful; Credentials saved in ~/.config/jiraffe/config.yaml")
-		}
+	cmd := &cobra.Command{
+		Use:     "auth",
+		Aliases: []string{"a"},
+		Short:   "Authenticate and save your Jira credentials",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if email != "" {
+				if err := validate.Var(email, "required,email"); err != nil {
+					return fmt.Errorf("invalid email format::: %w", err)
+				}
+			} else {
+				storedEmail := config.Cfg.GetString(jira.JiraConfigEmailKey)
+				if storedEmail == "" {
+					return fmt.Errorf("no active session found; Please provide your atlassian registered email ID with the --email flag to login for the first time")
+				}
+			}
 
-		return nil
-	},
-}
+			if org != "" {
+				if err := validate.Var(org, "required,hostname"); err != nil {
+					return fmt.Errorf("invalid jira org format ::: %w", err)
+				}
+			} else {
+				storedOrg := config.Cfg.GetString(jira.JiraConfigOrgKey)
+				if storedOrg == "" {
+					return fmt.Errorf("no jira org found, please pass on the jira org in the --org flag to login for the first time")
+				}
+			}
 
-var newIssueCmd = &cobra.Command{
-	Use:     "issue",
-	Aliases: []string{"i"},
-	Short:   "subcommand for jira issues",
-}
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			jc := jira.NewJiraCredentials(email, org, "")
+			c := jira.NewClient()
 
-var newListCmd = &cobra.Command{
-	Use:     "list",
-	Aliases: []string{"l"},
-	Short:   "subcommand for jira issue create",
-	PreRunE: func(cmd *cobra.Command, args []string) error {
-		return nil
-	},
-	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("issue/list called")
-		return nil
-	},
-}
+			if err := c.HandleAuthentication(cmd.Context(), jc); err != nil {
+				return err
+			}
 
-func init() {
-	// wiring the commands
-	rootCmd.AddCommand(newJiraCmd)
-	newJiraCmd.AddCommand(newAuthCmd)
-	newJiraCmd.AddCommand(newIssueCmd)
-	newIssueCmd.AddCommand(newListCmd)
+			fmt.Println("User Auth Success!!")
+			return nil
+		},
+	}
 
-	newAuthCmd.Flags().StringVarP(&email, "email", "e", "", "the email ID with which JIRA has been registered")
-	newAuthCmd.Flags().StringVarP(&org, "org", "o", defaultJiraOrg, "the JIRA org where you are trying to login")
+	cmd.Flags().StringVarP(&email, "email", "e", "", "email registered with atlassian account")
+	cmd.Flags().StringVarP(&org, "org", "o", defaultJiraOrg, "Atlassian organization name")
+
+	return cmd
 }
