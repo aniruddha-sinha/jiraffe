@@ -39,13 +39,8 @@ func newAuthCmd() *cobra.Command {
 		Aliases: []string{"a"},
 		Short:   "Authenticate and save your Jira credentials",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			emailFlag, err := cmd.Flags().GetString("email")
-			if err != nil {
-				return err
-			}
-
-			if emailFlag != "" {
-				if err := validate.Var(emailFlag, "required,email"); err != nil {
+			if email != "" {
+				if err := validate.Var(email, "required,email"); err != nil {
 					return fmt.Errorf("invalid email format::: %w", err)
 				}
 			} else {
@@ -55,13 +50,8 @@ func newAuthCmd() *cobra.Command {
 				}
 			}
 
-			orgFlag, err := cmd.Flags().GetString("org")
-			if err != nil {
-				return err
-			}
-
-			if orgFlag != "" {
-				if err := validate.Var(orgFlag, "required,hostname"); err != nil {
+			if org != "" {
+				if err := validate.Var(org, "required,hostname"); err != nil {
 					return fmt.Errorf("invalid jira org format ::: %w", err)
 				}
 			} else {
