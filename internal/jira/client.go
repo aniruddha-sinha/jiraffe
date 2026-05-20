@@ -64,7 +64,8 @@ func (c *Client) HandleAuthentication(ctx context.Context, jc *JiraCredentials) 
 
 func (c *Client) getLocalOrWebBasedToken(ctx context.Context, jc *JiraCredentials) error {
 	if err := c.getLocalToken(ctx, jc); err != nil {
-		fmt.Println("stored token is invalid or expired, attempting to request new token . . . ")
+		// fmt.Println("stored token is invalid or expired, attempting to request new token . . . ")
+		fmt.Printf("%v", err)
 		return c.getTokenFromWeb(ctx, jc)
 	}
 
@@ -130,6 +131,20 @@ func (c *Client) obtainEncodedTokenFromUser(jc *JiraCredentials) (string, error)
 }
 
 func (c *Client) getLocalToken(ctx context.Context, jc *JiraCredentials) error {
+	email, err := GetStoredEmail()
+	if err != nil {
+		return err
+	}
+
+	org, err := GetStoredOrg()
+	if err != nil {
+		return err
+	}
+
+	if jc.Email() != email || jc.Org() != org {
+		return fmt.Errorf("account switch detected: stored token does not match requested email/org")
+	}
+
 	token, err := GetStoredEncodedToken()
 	if err != nil {
 		return err
