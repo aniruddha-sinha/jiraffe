@@ -44,20 +44,21 @@ func newAuthCmd() *cobra.Command {
 					return fmt.Errorf("invalid email format::: %w", err)
 				}
 			} else {
-				storedEmail := config.Cfg.GetString(jira.JiraConfigEmailKey)
-				if storedEmail == "" {
+				email = config.Cfg.GetString(jira.JiraConfigEmailKey)
+				if email == "" {
 					return fmt.Errorf("no active session found; Please provide your atlassian registered email ID with the --email flag to login for the first time")
 				}
 			}
 
-			if org != "" {
+			if org != "" && org != defaultJiraOrg {
 				if err := validate.Var(org, "required,hostname"); err != nil {
 					return fmt.Errorf("invalid jira org format ::: %w", err)
 				}
 			} else {
-				storedOrg := config.Cfg.GetString(jira.JiraConfigOrgKey)
-				if storedOrg == "" {
-					return fmt.Errorf("no jira org found, please pass on the jira org in the --org flag to login for the first time")
+				org = config.Cfg.GetString(jira.JiraConfigOrgKey)
+				if org == "" {
+					org = defaultJiraOrg
+					// return fmt.Errorf("no jira org found, please pass on the jira org in the --org flag to login for the first time")
 				}
 			}
 
