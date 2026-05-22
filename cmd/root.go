@@ -41,9 +41,7 @@ func NewJiraffeCommand() *cobra.Command {
 		}
 	})
 
-	cmd.AddCommand(
-		newJiraCmd(),
-	)
+	cmd.AddCommand(newCredentialsCmd())
 
 	cmd.SetOut(os.Stdout)
 	cmd.SetErr(os.Stderr)
