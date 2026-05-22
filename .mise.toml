@@ -7,6 +7,7 @@ golangci-lint = "2.11.4"
 hk = "1.43.0"
 pkl = "latest"
 watchexec = "latest"
+"go:github.com/go-critic/go-critic/cmd/gocritic" = "latest"
 
 [tasks.clean]
 description = "Remove old binaries and coverage reports"
