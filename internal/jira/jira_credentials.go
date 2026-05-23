@@ -19,8 +19,6 @@ func NewJiraCreds(email, org, token string) *JiraCreds {
 	}
 }
 
-var client = NewClient()
-
 func (jc *JiraCreds) Email() string {
 	return jc.email
 }
@@ -34,12 +32,13 @@ func (jc *JiraCreds) EncodedAPIToken() string {
 }
 
 func (jc *JiraCreds) EnsureAuthentication(ctx context.Context) error {
+	client := NewClient(jc)
 	fullURL, err := client.getTokenValidatorAPIURL(jc.Org())
 	if err != nil {
 		return err
 	}
 
-	if err := client.validateToken(ctx, fullURL, jc.EncodedAPIToken()); err != nil {
+	if err := client.validateToken(ctx, fullURL); err != nil {
 		return fmt.Errorf("%w:%w", ErrAPITokenValidityVerification, err)
 	}
 	return nil
