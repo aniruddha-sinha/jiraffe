@@ -5,80 +5,82 @@ import (
 
 	"github.com/aniruddha-sinha/jiraffe/internal/config"
 	"github.com/aniruddha-sinha/jiraffe/internal/jira"
-	"github.com/go-playground/validator/v10"
 	"github.com/spf13/cobra"
 )
 
-func newJiraCmd() *cobra.Command {
+var (
+	JiraConfigEmailKey        = "auth.jira.email"
+	JiraConfigOrgKey          = "auth.jira.org"
+	JiraConfigEncodedTokenKey = "auth.jira.encoded_token" // nolint:gosec // this is a config key and not an actual token
+)
+
+func newCmdJira() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "jira",
 		Aliases: []string{"j"},
-		Short:   "subcommand for calling toplevel atlassian command line",
+		Short:   "subcommand to interact with Atlassian Jira",
 	}
 
-	cmd.AddCommand(
-		newAuthCmd(),
-	)
+	cmd.AddCommand(newCmdIssues())
+
 	return cmd
 }
 
-func newAuthCmd() *cobra.Command {
+func newCmdIssues() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:     "issue",
+		Aliases: []string{"i"},
+		Short:   "subcommand to target Jira Issues",
+	}
+
+	cmd.AddCommand(newCmdIssueList())
+
+	return cmd
+}
+
+func newCmdIssueList() *cobra.Command {
 	var (
-		email string
-		org   string
-	)
-
-	validate := validator.New()
-
-	const (
-		defaultJiraOrg = "asinha0493"
+		jiraProject string
+		jc          *jira.JiraCreds
 	)
 
 	cmd := &cobra.Command{
-		Use:     "auth",
-		Aliases: []string{"a"},
-		Short:   "Authenticate and save your Jira credentials",
+		Use:           "list",
+		Aliases:       []string{"l"},
+		Short:         "subcommand to get list of jira issues in a Jira project/Space",
+		SilenceErrors: true,
+		SilenceUsage:  true,
 		PreRunE: func(cmd *cobra.Command, args []string) error {
-			if email != "" {
-				if err := validate.Var(email, "required,email"); err != nil {
-					return fmt.Errorf("invalid email format::: %w", err)
-				}
-			} else {
-				email = config.Cfg.GetString(jira.JiraConfigEmailKey)
-				if email == "" {
-					return fmt.Errorf("no active session found; Please provide your atlassian registered email ID with the --email flag to login for the first time")
-				}
+			storedEmail, err := config.Cfg.Get(JiraConfigEmailKey)
+			if err != nil {
+				return err
+			}
+			storedOrg, err := config.Cfg.Get(JiraConfigOrgKey)
+			if err != nil {
+				return err
 			}
 
-			if org != "" && org != defaultJiraOrg {
-				if err := validate.Var(org, "required,hostname"); err != nil {
-					return fmt.Errorf("invalid jira org format ::: %w", err)
-				}
-			} else {
-				org = config.Cfg.GetString(jira.JiraConfigOrgKey)
-				if org == "" {
-					org = defaultJiraOrg
-					// return fmt.Errorf("no jira org found, please pass on the jira org in the --org flag to login for the first time")
-				}
+			storedEncodedToken, err := config.Cfg.Get(JiraConfigEncodedTokenKey)
+			if err != nil {
+				return err
 			}
+
+			jc = jira.NewJiraCreds(storedEmail, storedOrg, storedEncodedToken)
+
+			if err := jc.EnsureAuthentication(cmd.Context()); err != nil {
+				return err
+			}
+
+			fmt.Printf("User %s authenticated ", storedEmail)
 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			jc := jira.NewJiraCredentials(email, org, "")
-			c := jira.NewClient()
-
-			if err := c.HandleAuthentication(cmd.Context(), jc); err != nil {
-				return err
-			}
-
-			fmt.Println("User Auth Success!!")
 			return nil
 		},
 	}
 
-	cmd.Flags().StringVarP(&email, "email", "e", "", "email registered with atlassian account")
-	cmd.Flags().StringVarP(&org, "org", "o", defaultJiraOrg, "Atlassian organization name")
+	cmd.Flags().StringVarP(&jiraProject, "project", "p", "", "the Jira project/space under which issues need to be listed")
 
 	return cmd
 }

@@ -1,47 +1,46 @@
 package jira
 
-import "github.com/aniruddha-sinha/jiraffe/internal/config"
-
-var (
-	JiraConfigEmailKey        = "auth.jira.email"
-	JiraConfigOrgKey          = "auth.jira.org"
-	JiraConfigEncodedTokenKey = "auth.jira.encoded_token" // nolint:gosec // this is a config key and not an actual token
+import (
+	"context"
+	"fmt"
 )
 
-type JiraCredentials struct {
-	email    string
-	org      string
-	apiToken string
+type JiraCreds struct {
+	email string
+	org   string
+	token string
 }
 
-func NewJiraCredentials(email, org, apiToken string) *JiraCredentials {
-	return &JiraCredentials{
-		email:    email,
-		org:      org,
-		apiToken: apiToken,
+func NewJiraCreds(email, org, token string) *JiraCreds {
+	return &JiraCreds{
+		email: email,
+		org:   org,
+		token: token,
 	}
 }
 
-func (jc *JiraCredentials) Email() string {
+var client = NewClient()
+
+func (jc *JiraCreds) Email() string {
 	return jc.email
 }
 
-func (jc *JiraCredentials) Org() string {
+func (jc *JiraCreds) Org() string {
 	return jc.org
 }
 
-func (jc *JiraCredentials) ApiToken() string {
-	return jc.apiToken
+func (jc *JiraCreds) EncodedAPIToken() string {
+	return jc.token
 }
 
-func GetStoredEmail() (string, error) {
-	return config.Cfg.Get(JiraConfigEmailKey)
-}
+func (jc *JiraCreds) EnsureAuthentication(ctx context.Context) error {
+	fullURL, err := client.getTokenValidatorAPIURL(jc.Org())
+	if err != nil {
+		return err
+	}
 
-func GetStoredOrg() (string, error) {
-	return config.Cfg.Get(JiraConfigOrgKey)
-}
-
-func GetStoredEncodedToken() (string, error) {
-	return config.Cfg.Get(JiraConfigEncodedTokenKey)
+	if err := client.validateToken(ctx, fullURL, jc.EncodedAPIToken()); err != nil {
+		return fmt.Errorf("%w:%w", ErrAPITokenValidityVerification, err)
+	}
+	return nil
 }

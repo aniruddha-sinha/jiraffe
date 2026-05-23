@@ -2,17 +2,11 @@ package jira
 
 import (
 	"context"
-	"encoding/base64"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
-	"strings"
-	"syscall"
 	"time"
-
-	"github.com/aniruddha-sinha/jiraffe/internal/config"
-	"golang.org/x/term"
 )
 
 const (
@@ -56,106 +50,6 @@ func (c *Client) getTokenValidatorAPIURL(org string) (string, error) {
 	}
 
 	return fullURL, nil
-}
-
-func (c *Client) HandleAuthentication(ctx context.Context, jc *JiraCredentials) error {
-	return c.getLocalOrWebBasedToken(ctx, jc)
-}
-
-func (c *Client) getLocalOrWebBasedToken(ctx context.Context, jc *JiraCredentials) error {
-	if err := c.getLocalToken(ctx, jc); err != nil {
-		// fmt.Println("stored token is invalid or expired, attempting to request new token . . . ")
-		fmt.Printf("%v", err)
-		return c.getTokenFromWeb(ctx, jc)
-	}
-
-	return nil
-}
-
-func (c *Client) getTokenFromWeb(ctx context.Context, jc *JiraCredentials) error {
-	encodedToken, err := c.obtainEncodedTokenFromUser(jc)
-	if err != nil {
-		return err
-	}
-
-	fmt.Println("validating token")
-	fullURL, err := c.getTokenValidatorAPIURL(jc.Org())
-	if err != nil {
-		return err
-	}
-
-	if err := c.validateToken(ctx, fullURL, encodedToken); err != nil {
-		return fmt.Errorf("%w:%w", ErrAPITokenValidityVerification, err)
-	}
-
-	jc.apiToken = encodedToken
-	// token valid, save it
-	if err := c.commitSession(jc); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Client) commitSession(jc *JiraCredentials) error {
-	if err := config.Cfg.Upsert(JiraConfigEmailKey, jc.Email()); err != nil {
-		return err
-	}
-
-	if err := config.Cfg.Upsert(JiraConfigOrgKey, jc.Org()); err != nil {
-		return err
-	}
-
-	if err := config.Cfg.Upsert(JiraConfigEncodedTokenKey, jc.ApiToken()); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func (c *Client) obtainEncodedTokenFromUser(jc *JiraCredentials) (string, error) {
-	fmt.Printf("\n starting authentication %s for %s.atlassian.net\n", jc.Email(), jc.Org())
-	fmt.Println("click this link to generate the API token")
-	fmt.Println("https://id.atlassian.com/manage-profile/security/api-tokens")
-	fmt.Print("enter API token -> ")
-	bytePass, err := term.ReadPassword(int(syscall.Stdin))
-	if err != nil {
-		return "", fmt.Errorf("%w, %w", ErrTokenReadFailure, err)
-	}
-
-	token := strings.TrimSpace(string(bytePass))
-	fmt.Println("obtained token")
-	authStr := fmt.Sprintf("%s:%s", jc.Email(), token)
-	encodedStr := base64.StdEncoding.EncodeToString([]byte(authStr))
-	return encodedStr, nil
-}
-
-func (c *Client) getLocalToken(ctx context.Context, jc *JiraCredentials) error {
-	email, err := GetStoredEmail()
-	if err != nil {
-		return err
-	}
-
-	org, err := GetStoredOrg()
-	if err != nil {
-		return err
-	}
-
-	if jc.Email() != email || jc.Org() != org {
-		return fmt.Errorf("account switch detected: stored token does not match requested email/org")
-	}
-
-	token, err := GetStoredEncodedToken()
-	if err != nil {
-		return err
-	}
-
-	fullURL, err := c.getTokenValidatorAPIURL(jc.Org())
-	if err != nil {
-		return err
-	}
-
-	return c.validateToken(ctx, fullURL, token)
 }
 
 func (c *Client) validateToken(ctx context.Context, validateTokenApiURL, encodedAPIToken string) error {
