@@ -76,9 +76,6 @@ func newCmdIssueList() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			// fmt.Println(jc.Email())
-			// fmt.Println(jc.Org())
-			// fmt.Println(jc.EncodedAPIToken())
 			return nil
 		},
 	}
