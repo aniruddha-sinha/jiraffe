@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/aniruddha-sinha/jiraffe/internal/config"
 	"github.com/aniruddha-sinha/jiraffe/internal/jira"
@@ -95,6 +96,9 @@ func newCmdIssueList() *cobra.Command {
 	}
 
 	cmd.Flags().StringVarP(&jiraProject, "project", "p", "", "the Jira project/space under which issues need to be listed")
+	if err := cmd.MarkFlagRequired("project"); err != nil {
+		os.Exit(1)
+	}
 
 	return cmd
 }

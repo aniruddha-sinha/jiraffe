@@ -1,7 +1,7 @@
 [tools]
 go = "1.25"
 "go:github.com/spf13/cobra-cli" = "latest"
-ggshield = "latest"
+ggshield = "v1.50.4"
 gofumpt = "v0.9.2"
 golangci-lint = "2.11.4"
 hk = "1.43.0"
