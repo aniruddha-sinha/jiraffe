@@ -10,9 +10,11 @@ import (
 )
 
 const (
-	apiVersion                = "3"
-	baseURLTemplate           = "https://%s.atlassian.net"
-	endpointMyselfValidateAPI = "/rest/api/%s/myself"
+	apiVersion      = "3"
+	baseURLTemplate = "https://%s.atlassian.net"
+
+	urlTemplateValidateMyselfAPI = "/rest/api/%s/myself"
+	urlTemplateSearchAPI         = "/rest/api/%s/search/jql"
 )
 
 var (
@@ -23,13 +25,22 @@ var (
 )
 
 type Client struct {
-	*http.Client
+	httpClient *http.Client
+	creds      *JiraCreds
+
+	Issues *IssueService
 }
 
-func NewClient() *Client {
-	return &Client{
-		Client: &http.Client{Timeout: 10 * time.Second},
+func NewClient(creds *JiraCreds) *Client {
+	c := &Client{
+		httpClient: &http.Client{Timeout: 10 * time.Second},
+		creds:      creds,
 	}
+
+	// Initialize services, passing the parent client to them
+	c.Issues = &IssueService{issueClient: c}
+
+	return c
 }
 
 func (c *Client) BuildBaseURL(org, path string) (string, error) {
@@ -42,8 +53,8 @@ func (c *Client) BuildBaseURL(org, path string) (string, error) {
 	return finalURL.String(), nil
 }
 
-func (c *Client) getTokenValidatorAPIURL(org string) (string, error) {
-	apiPath := fmt.Sprintf(endpointMyselfValidateAPI, apiVersion)
+func (c *Client) getEndpointURL(urlTemplate, org string) (string, error) {
+	apiPath := fmt.Sprintf(urlTemplate, apiVersion)
 	fullURL, err := c.BuildBaseURL(org, apiPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to construct API URL: %w", err)
@@ -52,16 +63,24 @@ func (c *Client) getTokenValidatorAPIURL(org string) (string, error) {
 	return fullURL, nil
 }
 
-func (c *Client) validateToken(ctx context.Context, validateTokenApiURL, encodedAPIToken string) error {
-	request, err := http.NewRequestWithContext(ctx, http.MethodGet, validateTokenApiURL, nil)
+func (c *Client) NewRequest(ctx context.Context, method, url string) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Authorization", "Basic "+c.creds.EncodedAPIToken())
+	req.Header.Add("Accept", "application/json")
+	return req, nil
+}
+
+func (c *Client) validateToken(ctx context.Context, validateTokenApiURL string) error {
+	request, err := c.NewRequest(ctx, http.MethodGet, validateTokenApiURL)
 	if err != nil {
 		return err
 	}
 
-	request.Header.Add("Authorization", "Basic "+encodedAPIToken)
-	request.Header.Add("Accept", "application/json")
-
-	response, err := c.Do(request)
+	response, err := c.httpClient.Do(request)
 	if err != nil {
 		return err
 	}
@@ -72,6 +91,7 @@ func (c *Client) validateToken(ctx context.Context, validateTokenApiURL, encoded
 		}
 	}()
 
+	// 3. Evaluate the status code
 	return mapStatusToError(response.StatusCode)
 }
 

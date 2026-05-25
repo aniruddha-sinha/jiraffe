@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/aniruddha-sinha/jiraffe/internal/config"
 	"github.com/aniruddha-sinha/jiraffe/internal/jira"
@@ -76,11 +77,28 @@ func newCmdIssueList() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if jiraProject == "" {
+				return fmt.Errorf("project key is required")
+			}
+
+			fmt.Printf("Fetching issues for project %s...\n", jiraProject)
+
+			issues, err := jira.NewClient(jc).Issues.ListByProject(cmd.Context(), jiraProject)
+			if err != nil {
+				return err
+			}
+
+			for _, issue := range issues {
+				fmt.Printf("[%s] %s (ID: %s)\n", issue.Key, issue.Fields.Summary, issue.ID)
+			}
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVarP(&jiraProject, "project", "p", "", "the Jira project/space under which issues need to be listed")
+	if err := cmd.MarkFlagRequired("project"); err != nil {
+		os.Exit(1)
+	}
 
 	return cmd
 }
