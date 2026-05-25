@@ -76,6 +76,20 @@ func newCmdIssueList() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if jiraProject == "" {
+				return fmt.Errorf("project key is required")
+			}
+
+			fmt.Printf("Fetching issues for project %s...\n", jiraProject)
+
+			issues, err := jira.NewClient(jc).Issues.ListByProject(cmd.Context(), jiraProject)
+			if err != nil {
+				return err
+			}
+
+			for _, issue := range issues {
+				fmt.Printf("[%s] %s (ID: %s)\n", issue.Key, issue.Fields.Summary, issue.ID)
+			}
 			return nil
 		},
 	}

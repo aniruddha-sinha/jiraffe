@@ -10,9 +10,11 @@ import (
 )
 
 const (
-	apiVersion                = "3"
-	baseURLTemplate           = "https://%s.atlassian.net"
-	endpointMyselfValidateAPI = "/rest/api/%s/myself"
+	apiVersion      = "3"
+	baseURLTemplate = "https://%s.atlassian.net"
+
+	urlTemplateValidateMyselfAPI = "/rest/api/%s/myself"
+	urlTemplateSearchAPI         = "/rest/api/%s/search/jql"
 )
 
 var (
@@ -25,6 +27,8 @@ var (
 type Client struct {
 	httpClient *http.Client
 	creds      *JiraCreds
+
+	Issues *IssueService
 }
 
 func NewClient(creds *JiraCreds) *Client {
@@ -34,7 +38,7 @@ func NewClient(creds *JiraCreds) *Client {
 	}
 
 	// Initialize services, passing the parent client to them
-	// c.Issues = &IssueService{client: c}
+	c.Issues = &IssueService{issueClient: c}
 
 	return c
 }
@@ -49,8 +53,8 @@ func (c *Client) BuildBaseURL(org, path string) (string, error) {
 	return finalURL.String(), nil
 }
 
-func (c *Client) getTokenValidatorAPIURL(org string) (string, error) {
-	apiPath := fmt.Sprintf(endpointMyselfValidateAPI, apiVersion)
+func (c *Client) getEndpointURL(urlTemplate, org string) (string, error) {
+	apiPath := fmt.Sprintf(urlTemplate, apiVersion)
 	fullURL, err := c.BuildBaseURL(org, apiPath)
 	if err != nil {
 		return "", fmt.Errorf("failed to construct API URL: %w", err)

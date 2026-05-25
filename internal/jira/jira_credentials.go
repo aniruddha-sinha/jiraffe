@@ -33,7 +33,7 @@ func (jc *JiraCreds) EncodedAPIToken() string {
 
 func (jc *JiraCreds) EnsureAuthentication(ctx context.Context) error {
 	client := NewClient(jc)
-	fullURL, err := client.getTokenValidatorAPIURL(jc.Org())
+	fullURL, err := client.getEndpointURL(urlTemplateValidateMyselfAPI, jc.Org())
 	if err != nil {
 		return err
 	}
