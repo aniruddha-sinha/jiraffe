@@ -56,6 +56,8 @@ func newJiraCredentialsCmd() *cobra.Command {
 				return fmt.Errorf("wrong email format")
 			}
 
+			fmt.Println("click the link given below to generate API token")
+			fmt.Println("https://id.atlassian.com/manage-profile/security/api-tokens")
 			fmt.Println("enter API Token -> ")
 			bytePass, err := term.ReadPassword(int(syscall.Stdin))
 			if err != nil {
