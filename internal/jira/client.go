@@ -86,9 +86,7 @@ func (c *Client) validateToken(ctx context.Context, validateTokenApiURL string) 
 	}
 
 	defer func() {
-		if closeErr := response.Body.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to close the response body: %w", closeErr))
-		}
+		_ = response.Body.Close()
 	}()
 
 	// 3. Evaluate the status code

@@ -83,7 +83,7 @@ func newCmdIssueList() *cobra.Command {
 
 			fmt.Printf("Fetching issues for project %s...\n", jiraProject)
 
-			issues, err := jira.NewClient(jc).Issues.ListByProject(cmd.Context(), jiraProject)
+			issues, err := jira.NewClient(jc).Issues.List(cmd.Context(), jiraProject)
 			if err != nil {
 				return err
 			}

@@ -3,7 +3,6 @@ package jira
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -33,7 +32,7 @@ type IssueService struct {
 	issueClient *Client
 }
 
-func (is *IssueService) ListByProject(ctx context.Context, projectKey string) ([]Issue, error) {
+func (is *IssueService) List(ctx context.Context, projectKey string) ([]Issue, error) {
 	fullURL, err := is.issueClient.getEndpointURL(urlTemplateSearchAPI, is.issueClient.creds.Org())
 	if err != nil {
 		return nil, err
@@ -45,7 +44,7 @@ func (is *IssueService) ListByProject(ctx context.Context, projectKey string) ([
 	}
 
 	query := parsedURL.Query()
-	query.Add("jql", fmt.Sprintf("project=\"%s\"", projectKey))
+	query.Add("jql", fmt.Sprintf(`project="%s"`, projectKey))
 	query.Add("fields", "summary,key")
 	parsedURL.RawQuery = query.Encode()
 
@@ -60,9 +59,7 @@ func (is *IssueService) ListByProject(ctx context.Context, projectKey string) ([
 	}
 
 	defer func() {
-		if closeErr := response.Body.Close(); closeErr != nil {
-			err = errors.Join(err, fmt.Errorf("failed to close the response body: %w", closeErr))
-		}
+		_ = response.Body.Close()
 	}()
 
 	if err := mapStatusToError(response.StatusCode); err != nil {
