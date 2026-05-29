@@ -29,8 +29,6 @@ var (
 type Client struct {
 	httpClient *http.Client
 	creds      *JiraCreds
-
-	Issues *IssueService
 }
 
 func NewClient(creds *JiraCreds) *Client {
@@ -38,9 +36,6 @@ func NewClient(creds *JiraCreds) *Client {
 		httpClient: &http.Client{Timeout: 10 * time.Second},
 		creds:      creds,
 	}
-
-	// Initialize services, passing the parent client to them
-	c.Issues = &IssueService{issueClient: c}
 
 	return c
 }
@@ -91,7 +86,6 @@ func (c *Client) validateToken(ctx context.Context, validateTokenApiURL string) 
 		_ = response.Body.Close()
 	}()
 
-	// 3. Evaluate the status code
 	return mapStatusToError(response.StatusCode)
 }
 
