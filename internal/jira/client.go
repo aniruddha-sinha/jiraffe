@@ -15,6 +15,8 @@ const (
 
 	urlTemplateValidateMyselfAPI = "/rest/api/%s/myself"
 	urlTemplateSearchAPI         = "/rest/api/%s/search/jql"
+	urlTemplateListProjects      = "/rest/api/%s/project"
+	urlTemplateIssueSearch       = "/rest/api/%s/issue/%s"
 )
 
 var (
