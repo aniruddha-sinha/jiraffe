@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"fmt"
-	"os"
 
 	"github.com/aniruddha-sinha/jiraffe/internal/config"
 	"github.com/aniruddha-sinha/jiraffe/internal/jira"
@@ -15,11 +14,38 @@ var (
 	JiraConfigEncodedTokenKey = "auth.jira.encoded_token" // nolint:gosec // this is a config key and not an actual token
 )
 
+var sharedJiraCreds *jira.JiraCreds
+
 func newCmdJira() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:     "jira",
 		Aliases: []string{"j"},
 		Short:   "subcommand to interact with Atlassian Jira",
+		PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
+			storedEmail, err := config.Cfg.Get(JiraConfigEmailKey)
+			if err != nil {
+				return err
+			}
+
+			storedOrg, err := config.Cfg.Get(JiraConfigOrgKey)
+			if err != nil {
+				return err
+			}
+
+			storedEncodedToken, err := config.Cfg.Get(JiraConfigEncodedTokenKey)
+			if err != nil {
+				return err
+			}
+
+			sharedJiraCreds = jira.NewJiraCreds(storedEmail, storedOrg, storedEncodedToken)
+
+			if err := sharedJiraCreds.EnsureAuthentication(cmd.Context()); err != nil {
+				return err
+			}
+
+			fmt.Printf("User %s authenticated\n", storedEmail)
+			return nil
+		},
 	}
 
 	cmd.AddCommand(newCmdIssues())
@@ -40,51 +66,16 @@ func newCmdIssues() *cobra.Command {
 }
 
 func newCmdIssueList() *cobra.Command {
-	var (
-		jiraProject string
-		jc          *jira.JiraCreds
-	)
+	var jiraProject string
 
 	cmd := &cobra.Command{
-		Use:           "list",
-		Aliases:       []string{"l"},
-		Short:         "subcommand to get list of jira issues in a Jira project/Space",
-		SilenceErrors: true,
-		SilenceUsage:  true,
-		PreRunE: func(cmd *cobra.Command, args []string) error {
-			storedEmail, err := config.Cfg.Get(JiraConfigEmailKey)
-			if err != nil {
-				return err
-			}
-			storedOrg, err := config.Cfg.Get(JiraConfigOrgKey)
-			if err != nil {
-				return err
-			}
-
-			storedEncodedToken, err := config.Cfg.Get(JiraConfigEncodedTokenKey)
-			if err != nil {
-				return err
-			}
-
-			jc = jira.NewJiraCreds(storedEmail, storedOrg, storedEncodedToken)
-
-			if err := jc.EnsureAuthentication(cmd.Context()); err != nil {
-				return err
-			}
-
-			fmt.Printf("User %s authenticated ", storedEmail)
-
-			return nil
-		},
+		Use:     "list",
+		Aliases: []string{"l"},
+		Short:   "subcommand to get list of jira issues in a Jira project/Space",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if jiraProject == "" {
-				return fmt.Errorf("project key is required")
-			}
-
 			fmt.Printf("Fetching issues for project %s...\n", jiraProject)
 
-			// issues, err := jira.NewClient().NewClient(jc).Issues.List(cmd.Context(), jiraProject)
-			issues, err := jira.NewIssueService(jira.NewClient(jc)).List(cmd.Context(), jiraProject)
+			issues, err := jira.NewIssueService(jira.NewClient(sharedJiraCreds)).List(cmd.Context(), jiraProject)
 			if err != nil {
 				return err
 			}
@@ -98,7 +89,7 @@ func newCmdIssueList() *cobra.Command {
 
 	cmd.Flags().StringVarP(&jiraProject, "project", "p", "", "the Jira project/space under which issues need to be listed")
 	if err := cmd.MarkFlagRequired("project"); err != nil {
-		os.Exit(1)
+		return nil
 	}
 
 	return cmd
