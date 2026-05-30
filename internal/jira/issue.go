@@ -32,8 +32,12 @@ type IssueService struct {
 	issueClient *Client
 }
 
+func NewIssueService(client *Client) *IssueService {
+	return &IssueService{issueClient: client}
+}
+
 func (is *IssueService) List(ctx context.Context, projectKey string) ([]Issue, error) {
-	fullURL, err := is.issueClient.getEndpointURL(urlTemplateSearchAPI, is.issueClient.creds.Org())
+	fullURL, err := is.issueClient.BuildURL(urlTemplateSearchAPI, apiVersion)
 	if err != nil {
 		return nil, err
 	}

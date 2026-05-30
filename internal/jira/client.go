@@ -15,6 +15,9 @@ const (
 
 	urlTemplateValidateMyselfAPI = "/rest/api/%s/myself"
 	urlTemplateSearchAPI         = "/rest/api/%s/search/jql"
+	urlTemplateListProjects      = "/rest/api/%s/project"
+	urlTemplateProjectSearch     = "/rest/api/%s/project/%s"
+	urlTemplateIssueSearch       = "/rest/api/%s/issue/%s"
 )
 
 var (
@@ -27,8 +30,6 @@ var (
 type Client struct {
 	httpClient *http.Client
 	creds      *JiraCreds
-
-	Issues *IssueService
 }
 
 func NewClient(creds *JiraCreds) *Client {
@@ -37,30 +38,19 @@ func NewClient(creds *JiraCreds) *Client {
 		creds:      creds,
 	}
 
-	// Initialize services, passing the parent client to them
-	c.Issues = &IssueService{issueClient: c}
-
 	return c
 }
 
-func (c *Client) BuildBaseURL(org, path string) (string, error) {
-	base, err := url.Parse(fmt.Sprintf(baseURLTemplate, org))
+func (c *Client) BuildURL(pathTemplate string, pathArgs ...any) (string, error) {
+	rawBaseURL := fmt.Sprintf(baseURLTemplate, c.creds.Org())
+	baseURL, err := url.Parse(rawBaseURL)
 	if err != nil {
-		return "", fmt.Errorf("error building base url: %w", err)
+		return "", fmt.Errorf("failed to parse base URL: %w", err)
 	}
 
-	finalURL := base.JoinPath(path)
+	formattedPath := fmt.Sprintf(pathTemplate, pathArgs...)
+	finalURL := baseURL.JoinPath(formattedPath)
 	return finalURL.String(), nil
-}
-
-func (c *Client) getEndpointURL(urlTemplate, org string) (string, error) {
-	apiPath := fmt.Sprintf(urlTemplate, apiVersion)
-	fullURL, err := c.BuildBaseURL(org, apiPath)
-	if err != nil {
-		return "", fmt.Errorf("failed to construct API URL: %w", err)
-	}
-
-	return fullURL, nil
 }
 
 func (c *Client) NewRequest(ctx context.Context, method, url string) (*http.Request, error) {
@@ -89,7 +79,6 @@ func (c *Client) validateToken(ctx context.Context, validateTokenApiURL string) 
 		_ = response.Body.Close()
 	}()
 
-	// 3. Evaluate the status code
 	return mapStatusToError(response.StatusCode)
 }
 
