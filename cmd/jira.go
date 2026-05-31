@@ -63,7 +63,10 @@ func newCmdIssues() *cobra.Command {
 		Short:   "subcommand to target Jira Issues",
 	}
 
-	cmd.AddCommand(newCmdIssueList())
+	cmd.AddCommand(
+		newCmdIssueList(),
+		newCmdIssuesGet(),
+	)
 
 	return cmd
 }
@@ -92,6 +95,32 @@ func newCmdIssueList() *cobra.Command {
 
 	cmd.Flags().StringVarP(&jiraProject, "project", "p", "", "the Jira project/space under which issues need to be listed")
 	if err := cmd.MarkFlagRequired("project"); err != nil {
+		return nil
+	}
+
+	return cmd
+}
+
+func newCmdIssuesGet() *cobra.Command {
+	var issueKey string
+	cmd := &cobra.Command{
+		Use:     "get",
+		Aliases: []string{"g"},
+		Short:   "subcommand for getting jira issues",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("fetching issue", issueKey)
+			issue, err := jira.NewIssueService(jira.NewClient(sharedJiraCreds)).Get(cmd.Context(), issueKey)
+			if err != nil {
+				return err
+			}
+
+			issue.PrintIssueDetail()
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&issueKey, "issue-key", "i", "", "issue key such as XCBDD-12345")
+	if err := cmd.MarkFlagRequired("issue-key"); err != nil {
 		return nil
 	}
 
