@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 )
 
 type Issue struct {
@@ -37,22 +36,17 @@ func NewIssueService(client *Client) *IssueService {
 }
 
 func (is *IssueService) List(ctx context.Context, projectKey string) ([]Issue, error) {
-	fullURL, err := is.issueClient.BuildURL(urlTemplateSearchAPI, apiVersion)
+	fullURL, err := is.issueClient.buildURLForQueryParams(urlTemplateSearchAPI, apiVersion)
 	if err != nil {
 		return nil, err
 	}
 
-	parsedURL, err := url.Parse(fullURL)
-	if err != nil {
-		return nil, err
-	}
-
-	query := parsedURL.Query()
+	query := fullURL.Query()
 	query.Add("jql", fmt.Sprintf(`project="%s"`, projectKey))
 	query.Add("fields", "summary,key")
-	parsedURL.RawQuery = query.Encode()
+	fullURL.RawQuery = query.Encode()
 
-	request, err := is.issueClient.NewRequest(ctx, http.MethodGet, parsedURL.String())
+	request, err := is.issueClient.NewRequest(ctx, http.MethodGet, fullURL.String())
 	if err != nil {
 		return nil, err
 	}
@@ -76,4 +70,36 @@ func (is *IssueService) List(ctx context.Context, projectKey string) ([]Issue, e
 	}
 
 	return searchResult.Issues, nil
+}
+
+func (is *IssueService) Get(ctx context.Context, issueKey string) (*Issue, error) {
+	fullURL, err := is.issueClient.buildRawURL(urlTemplateIssueGet, apiVersion, issueKey)
+	if err != nil {
+		return &Issue{}, err
+	}
+
+	request, err := is.issueClient.NewRequest(ctx, http.MethodGet, fullURL)
+	if err != nil {
+		return &Issue{}, err
+	}
+
+	response, err := is.issueClient.httpClient.Do(request)
+	if err != nil {
+		return &Issue{}, err
+	}
+
+	defer func() {
+		_ = response.Body.Close()
+	}()
+
+	if err := mapStatusToError(response.StatusCode); err != nil {
+		return nil, err
+	}
+
+	var issue Issue
+	if err := json.NewDecoder(response.Body).Decode(&issue); err != nil {
+		return nil, fmt.Errorf("failed to decode issue %s: %w", issueKey, err)
+	}
+
+	return &issue, nil
 }

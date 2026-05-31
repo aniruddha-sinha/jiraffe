@@ -17,7 +17,7 @@ const (
 	urlTemplateSearchAPI         = "/rest/api/%s/search/jql"
 	urlTemplateListProjects      = "/rest/api/%s/project"
 	urlTemplateProjectSearch     = "/rest/api/%s/project/%s"
-	urlTemplateIssueSearch       = "/rest/api/%s/issue/%s"
+	urlTemplateIssueGet          = "/rest/api/%s/issue/%s"
 )
 
 var (
@@ -41,7 +41,7 @@ func NewClient(creds *JiraCreds) *Client {
 	return c
 }
 
-func (c *Client) BuildURL(pathTemplate string, pathArgs ...any) (string, error) {
+func (c *Client) buildRawURL(pathTemplate string, pathArgs ...any) (string, error) {
 	rawBaseURL := fmt.Sprintf(baseURLTemplate, c.creds.Org())
 	baseURL, err := url.Parse(rawBaseURL)
 	if err != nil {
@@ -51,6 +51,20 @@ func (c *Client) BuildURL(pathTemplate string, pathArgs ...any) (string, error) 
 	formattedPath := fmt.Sprintf(pathTemplate, pathArgs...)
 	finalURL := baseURL.JoinPath(formattedPath)
 	return finalURL.String(), nil
+}
+
+func (c *Client) buildURLForQueryParams(pathTemplate string, pathArgs ...any) (*url.URL, error) {
+	fullURL, err := c.buildRawURL(pathTemplate, pathArgs...)
+	if err != nil {
+		return &url.URL{}, err
+	}
+
+	parsedURL, err := url.Parse(fullURL)
+	if err != nil {
+		return &url.URL{}, err
+	}
+
+	return parsedURL, nil
 }
 
 func (c *Client) NewRequest(ctx context.Context, method, url string) (*http.Request, error) {
