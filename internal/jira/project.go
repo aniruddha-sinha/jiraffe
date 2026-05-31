@@ -46,7 +46,7 @@ func (p *Project) ProjectStyle() string {
 }
 
 func (ps *ProjectService) List(ctx context.Context) ([]Project, error) {
-	fullURL, err := ps.projectClient.BuildURL(urlTemplateListProjects, apiVersion)
+	fullURL, err := ps.projectClient.buildRawURL(urlTemplateListProjects, apiVersion)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (ps *ProjectService) List(ctx context.Context) ([]Project, error) {
 }
 
 func (ps *ProjectService) Get(ctx context.Context, projectKey string) (*Project, error) {
-	fullURL, err := ps.projectClient.BuildURL(urlTemplateProjectSearch, apiVersion, projectKey)
+	fullURL, err := ps.projectClient.buildRawURL(urlTemplateProjectSearch, apiVersion, projectKey)
 	if err != nil {
 		return nil, err
 	}
