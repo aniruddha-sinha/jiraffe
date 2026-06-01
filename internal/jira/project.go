@@ -51,12 +51,7 @@ func (ps *ProjectService) List(ctx context.Context) ([]Project, error) {
 		return nil, err
 	}
 
-	request, err := ps.projectClient.NewRequest(ctx, http.MethodGet, fullURL)
-	if err != nil {
-		return nil, err
-	}
-
-	response, err := ps.projectClient.httpClient.Do(request)
+	response, err := ps.projectClient.Do(ctx, http.MethodGet, fullURL)
 	if err != nil {
 		return nil, err
 	}
@@ -83,14 +78,9 @@ func (ps *ProjectService) Get(ctx context.Context, projectKey string) (*Project,
 		return nil, err
 	}
 
-	request, err := ps.projectClient.NewRequest(ctx, http.MethodGet, fullURL)
+	response, err := ps.projectClient.Do(ctx, http.MethodGet, fullURL)
 	if err != nil {
-		return &Project{}, err
-	}
-
-	response, err := ps.projectClient.httpClient.Do(request)
-	if err != nil {
-		return &Project{}, err
+		return nil, err
 	}
 
 	defer func() {

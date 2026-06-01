@@ -14,7 +14,7 @@ const (
 	baseURLTemplate = "https://%s.atlassian.net"
 
 	urlTemplateValidateMyselfAPI = "/rest/api/%s/myself"
-	urlTemplateSearchAPI         = "/rest/api/%s/search/jql"
+	urlTemplateIssueSearchAPIJQL = "/rest/api/%s/search/jql"
 	urlTemplateListProjects      = "/rest/api/%s/project"
 	urlTemplateProjectSearch     = "/rest/api/%s/project/%s"
 	urlTemplateIssueGet          = "/rest/api/%s/issue/%s"
@@ -76,6 +76,25 @@ func (c *Client) NewRequest(ctx context.Context, method, url string) (*http.Requ
 	req.Header.Add("Authorization", "Basic "+c.creds.EncodedAPIToken())
 	req.Header.Add("Accept", "application/json")
 	return req, nil
+}
+
+func (c *Client) Do(ctx context.Context, method, url string) (*http.Response, error) {
+	request, err := c.NewRequest(ctx, method, url)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.httpClient.Do(request)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := mapStatusToError(response.StatusCode); err != nil {
+		_ = response.Body.Close()
+		return nil, err
+	}
+
+	return response, nil
 }
 
 func (c *Client) validateToken(ctx context.Context, validateTokenApiURL string) error {
