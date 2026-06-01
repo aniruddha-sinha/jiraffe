@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"errors"
 	"fmt"
 
 	"github.com/aniruddha-sinha/jiraffe/internal/config"
@@ -72,30 +73,45 @@ func newCmdIssues() *cobra.Command {
 }
 
 func newCmdIssueList() *cobra.Command {
-	var jiraProject string
+	var (
+		jiraProject string
+		maxPages    int
+	)
 
 	cmd := &cobra.Command{
 		Use:     "list",
 		Aliases: []string{"l"},
 		Short:   "subcommand to get list of jira issues in a Jira project/Space",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			if maxPages < 1 {
+				return errors.New("--pages must be >= 1")
+			}
+
+			return nil
+		},
+
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("Fetching issues for project %s...\n", jiraProject)
 
-			issues, err := jira.NewIssueService(jira.NewClient(sharedJiraCreds)).List(cmd.Context(), jiraProject)
+			issues, err := jira.NewIssueService(jira.NewClient(sharedJiraCreds)).List(cmd.Context(), jiraProject, maxPages)
 			if err != nil {
 				return err
 			}
 
 			for _, issue := range issues {
-				fmt.Printf("[%s] %s (ID: %s)\n", issue.Key, issue.Fields.Summary, issue.ID)
+				fmt.Printf("[%s] | Status: %s | Priority : %s | Assignee: %s \n",
+					issue.Key, issue.Summary(), issue.Priority(), issue.Assignee())
 			}
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVarP(&jiraProject, "project", "p", "", "the Jira project/space under which issues need to be listed")
-	if err := cmd.MarkFlagRequired("project"); err != nil {
-		return nil
+	cmd.Flags().IntVar(&maxPages, "pages", 0, "number of pages to fetch (must be >= 1)")
+	for _, flag := range []string{"project", "pages"} {
+		if err := cmd.MarkFlagRequired(flag); err != nil {
+			panic(err)
+		}
 	}
 
 	return cmd
@@ -114,7 +130,20 @@ func newCmdIssuesGet() *cobra.Command {
 				return err
 			}
 
-			issue.PrintIssueDetail()
+			prettyPrintIssue := fmt.Sprintf(
+				`%s
+				Summary:	%s
+				Type:		%s
+				Status:		%s
+				Priority:	%s
+				Assignee:	%s
+				Created:	%s
+				Updated:	%s
+				Description:	%s
+				`,
+				issue.Key, issue.Summary(), issue.Type(), issue.Status(), issue.Priority(), issue.Assignee(), issue.Created(), issue.Updated(), issue.Description())
+
+			fmt.Print(prettyPrintIssue)
 			return nil
 		},
 	}
