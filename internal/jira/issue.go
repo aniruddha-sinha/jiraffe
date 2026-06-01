@@ -95,12 +95,12 @@ func (i *Issue) Description() string {
 	}
 
 	var s string
-	if err := json.Unmarshal(i.Fields.Description, &s); err != nil {
+	if err := json.Unmarshal(i.Fields.Description, &s); err == nil {
 		return s
 	}
 
 	var doc adfDocument
-	if err := json.Unmarshal(i.Fields.Description, &doc); err != nil {
+	if err := json.Unmarshal(i.Fields.Description, &doc); err == nil {
 		return extractADFText(doc)
 	}
 

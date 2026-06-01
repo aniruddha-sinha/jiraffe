@@ -37,7 +37,7 @@ if [ -z "$(find . -name '*_test.go' -print -quit)" ]; then
 fi
 
 # 1. Run tests and capture the exit code (do not exit yet)
-go test ./internal -v -coverprofile=test-coverage/cover.out
+go test ./... -v -coverprofile=test-coverage/cover.out
 TEST_EXIT_CODE=$?
 
 # 2. Generate HTML report regardless of test success/failure
