@@ -118,7 +118,11 @@ func newCmdIssueList() *cobra.Command {
 }
 
 func newCmdIssuesGet() *cobra.Command {
-	var issueKey string
+	var (
+		issueKey   string
+		outputJson bool
+	)
+
 	cmd := &cobra.Command{
 		Use:     "get",
 		Aliases: []string{"g"},
@@ -130,17 +134,28 @@ func newCmdIssuesGet() *cobra.Command {
 				return err
 			}
 
-			prettyPrintIssue, err := issue.String()
-			if err != nil {
-				return err
+			if outputJson {
+				jsonOut, err := issue.Json()
+				if err != nil {
+					return err
+				}
+
+				fmt.Println(jsonOut)
+			} else {
+				prettyPrintIssue, err := issue.String()
+				if err != nil {
+					return err
+				}
+
+				fmt.Print(prettyPrintIssue)
 			}
 
-			fmt.Print(prettyPrintIssue)
 			return nil
 		},
 	}
 
 	cmd.Flags().StringVarP(&issueKey, "issue-key", "i", "", "issue key such as XCBDD-12345")
+	cmd.Flags().BoolVarP(&outputJson, "json", "j", false, "if selected the output will be in json format")
 	if err := cmd.MarkFlagRequired("issue-key"); err != nil {
 		return nil
 	}

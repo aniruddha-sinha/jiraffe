@@ -4,15 +4,9 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
-)
-
-var (
-	ErrDescriptionNoString            = errors.New("string not present in description")
-	ErrDescriptionADFDocumentNotFound = errors.New("ADF document not present in description")
 )
 
 type Issue struct {
@@ -148,8 +142,17 @@ func (i *Issue) Updated() string {
 	return i.Fields.Updated
 }
 
-func (is *Issue) String() (string, error) {
-	desc, err := is.Description()
+func (i *Issue) Json() (string, error) {
+	jsonOut, err := json.MarshalIndent(i, "", "	")
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonOut), nil
+}
+
+func (i *Issue) String() (string, error) {
+	desc, err := i.Description()
 	if err != nil {
 		return "", err
 	}
@@ -164,7 +167,7 @@ func (is *Issue) String() (string, error) {
 				Updated:	%s
 				Description:	%s
 				`,
-		is.Key, is.Summary(), is.Type(), is.Status(), is.Priority(), is.Assignee(), is.Created(), is.Updated(), desc)
+		i.Key, i.Summary(), i.Type(), i.Status(), i.Priority(), i.Assignee(), i.Created(), i.Updated(), desc)
 
 	return prettyPrintIssue, nil
 }
