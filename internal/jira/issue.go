@@ -1,11 +1,18 @@
 package jira
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"strings"
+)
+
+var (
+	ErrDescriptionNoString            = errors.New("string not present in description")
+	ErrDescriptionADFDocumentNotFound = errors.New("ADF document not present in description")
 )
 
 type Issue struct {
@@ -89,22 +96,35 @@ func (i *Issue) Type() string {
 	return i.Fields.IssueType.Name
 }
 
-func (i *Issue) Description() string {
-	if len(i.Fields.Description) == 0 || string(i.Fields.Description) == "null" {
-		return ""
+func (i *Issue) Description() (string, error) {
+	rawDescripton := i.Fields.Description
+	if len(rawDescripton) == 0 || string(rawDescripton) == "null" {
+		return "", nil
 	}
 
-	var s string
-	if err := json.Unmarshal(i.Fields.Description, &s); err == nil {
-		return s
+	data := bytes.TrimSpace(rawDescripton)
+	if len(data) == 0 {
+		return "", nil
 	}
 
-	var doc adfDocument
-	if err := json.Unmarshal(i.Fields.Description, &doc); err == nil {
-		return extractADFText(doc)
+	if data[0] == '"' {
+		var plainString string
+		if err := json.Unmarshal(data, &plainString); err != nil {
+			return "", fmt.Errorf("failed to decode json string: %w", err)
+		}
+
+		return plainString, nil
 	}
 
-	return ""
+	if data[0] == '{' {
+		var adfDoc adfDocument
+		if err := json.Unmarshal(data, &adfDoc); err != nil {
+			return "", fmt.Errorf("failed to decode json string into ADF document: %w", err)
+		}
+		return extractADFText(adfDoc), nil
+	}
+
+	return string(data), nil
 }
 
 func extractADFText(doc adfDocument) string {
@@ -126,6 +146,27 @@ func (i *Issue) Created() string {
 
 func (i *Issue) Updated() string {
 	return i.Fields.Updated
+}
+
+func (is *Issue) String() (string, error) {
+	desc, err := is.Description()
+	if err != nil {
+		return "", err
+	}
+	prettyPrintIssue := fmt.Sprintf(
+		`%s
+				Summary:	%s
+				Type:		%s
+				Status:		%s
+				Priority:	%s
+				Assignee:	%s
+				Created:	%s
+				Updated:	%s
+				Description:	%s
+				`,
+		is.Key, is.Summary(), is.Type(), is.Status(), is.Priority(), is.Assignee(), is.Created(), is.Updated(), desc)
+
+	return prettyPrintIssue, nil
 }
 
 func (is *IssueService) List(ctx context.Context, projectKey string, maxPages int) ([]Issue, error) {
@@ -178,7 +219,7 @@ func (is *IssueService) buildSearchURL(projectKey, pageToken string) (string, er
 
 	query := fullURL.Query()
 	query.Add("jql", fmt.Sprintf(`project=%s`, projectKey))
-	query.Add("fields", "summary,status,priority,assignee,issueType")
+	query.Add("fields", "summary,status,priority,assignee,issueType,description,created,updated")
 	query.Add("maxResults", "50") // need to reconsider; more results -> heavier slice
 	if pageToken != "" {
 		query.Add("nextPageToken", pageToken)

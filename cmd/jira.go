@@ -130,18 +130,10 @@ func newCmdIssuesGet() *cobra.Command {
 				return err
 			}
 
-			prettyPrintIssue := fmt.Sprintf(
-				`%s
-				Summary:	%s
-				Type:		%s
-				Status:		%s
-				Priority:	%s
-				Assignee:	%s
-				Created:	%s
-				Updated:	%s
-				Description:	%s
-				`,
-				issue.Key, issue.Summary(), issue.Type(), issue.Status(), issue.Priority(), issue.Assignee(), issue.Created(), issue.Updated(), issue.Description())
+			prettyPrintIssue, err := issue.String()
+			if err != nil {
+				return err
+			}
 
 			fmt.Print(prettyPrintIssue)
 			return nil
