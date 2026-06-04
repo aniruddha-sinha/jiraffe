@@ -56,12 +56,12 @@ func (c *Client) buildRawURL(pathTemplate string, pathArgs ...any) (string, erro
 func (c *Client) buildURLForQueryParams(pathTemplate string, pathArgs ...any) (*url.URL, error) {
 	fullURL, err := c.buildRawURL(pathTemplate, pathArgs...)
 	if err != nil {
-		return &url.URL{}, err
+		return nil, err
 	}
 
 	parsedURL, err := url.Parse(fullURL)
 	if err != nil {
-		return &url.URL{}, err
+		return nil, err
 	}
 
 	return parsedURL, nil
