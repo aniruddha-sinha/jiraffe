@@ -1,7 +1,6 @@
 package jira
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -96,29 +95,12 @@ func (i *Issue) Description() (string, error) {
 		return "", nil
 	}
 
-	data := bytes.TrimSpace(rawDescripton)
-	if len(data) == 0 {
-		return "", nil
+	var adfDoc adfDocument
+	if err := json.Unmarshal(rawDescripton, &adfDoc); err != nil {
+		return "", fmt.Errorf("failed to decode json string into ADF document: %w", err)
 	}
 
-	if data[0] == '"' {
-		var plainString string
-		if err := json.Unmarshal(data, &plainString); err != nil {
-			return "", fmt.Errorf("failed to decode json string: %w", err)
-		}
-
-		return plainString, nil
-	}
-
-	if data[0] == '{' {
-		var adfDoc adfDocument
-		if err := json.Unmarshal(data, &adfDoc); err != nil {
-			return "", fmt.Errorf("failed to decode json string into ADF document: %w", err)
-		}
-		return extractADFText(adfDoc), nil
-	}
-
-	return string(data), nil
+	return extractADFText(adfDoc), nil
 }
 
 func extractADFText(doc adfDocument) string {
