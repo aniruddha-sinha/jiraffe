@@ -67,6 +67,7 @@ func newCmdIssues() *cobra.Command {
 	cmd.AddCommand(
 		newCmdIssueList(),
 		newCmdIssuesGet(),
+		newCmdIssuesCreate(),
 	)
 
 	return cmd
@@ -158,6 +159,82 @@ func newCmdIssuesGet() *cobra.Command {
 	cmd.Flags().BoolVarP(&outputJson, "json", "j", false, "if selected the output will be in json format")
 	if err := cmd.MarkFlagRequired("issue-key"); err != nil {
 		return nil
+	}
+
+	return cmd
+}
+
+func newCmdIssuesCreate() *cobra.Command {
+	var (
+		projectKey    string
+		summary       string
+		description   string
+		issueType     string
+		labels        []string
+		sprintID      int
+		teamID        string
+		sprintFieldID string // Dynamic key for Sprint
+		teamFieldID   string // Dynamic key for Team
+		payload       *jira.CreateIssueRequest
+	)
+
+	cmd := &cobra.Command{
+		Use:     "create",
+		Aliases: []string{"c"},
+		Short:   "create a new JIRA issue",
+		PreRunE: func(cmd *cobra.Command, args []string) error {
+			projectRef := jira.NewProjectRef(projectKey)
+			issueTypeRef := jira.NewIssueTypeRef(issueType)
+			desc := jira.BuildADFDescription(description)
+			fields := jira.NewCreateIssueFields(*projectRef, summary, desc, *issueTypeRef, labels, make(map[string]any))
+			payload = jira.NewCreateIssueRequest(fields)
+
+			// Populate dynamic fields if provided
+			if sprintID != 0 && sprintFieldID != "" {
+				payload.Fields.CustomFields[sprintFieldID] = sprintID
+			} else if sprintID != 0 && sprintFieldID == "" {
+				return fmt.Errorf("you provided a sprint ID but no --sprint-field-id")
+			}
+
+			if teamID != "" && teamFieldID != "" {
+				payload.Fields.CustomFields[teamFieldID] = teamID
+			} else if teamID != "" && teamFieldID == "" {
+				return fmt.Errorf("you provided a team ID but no --team-field-id")
+			}
+
+			return nil
+		},
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Printf("create issue in %s\n", projectKey)
+			client := jira.NewIssueService(jira.NewClient(sharedJiraCreds))
+			res, err := client.Create(cmd.Context(), *payload)
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("Successfully created issue: %s (%s)\n", res.Key, res.Self)
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVarP(&projectKey, "project", "p", "", "Project key (e.g., PROJ)")
+	cmd.Flags().StringVarP(&summary, "summary", "s", "", "Issue summary/title")
+	cmd.Flags().StringVarP(&issueType, "type", "t", "Task", "Issue type (e.g., Bug, Task, Story)")
+	cmd.Flags().StringVarP(&description, "description", "d", "", "description")
+	cmd.Flags().StringSliceVarP(&labels, "labels", "l", []string{}, "Comma-separated labels")
+
+	// Values
+	cmd.Flags().IntVar(&sprintID, "sprint", 0, "Sprint ID (numeric)")
+	cmd.Flags().StringVar(&teamID, "team", "", "Team ID (string)")
+
+	// Dynamic Keys
+	cmd.Flags().StringVar(&sprintFieldID, "sprint-field-id", "", "The custom field key for Sprints in your Jira instance")
+	cmd.Flags().StringVar(&teamFieldID, "team-field-id", "", "The custom field key for Teams in your Jira instance")
+
+	for _, x := range []string{"project", "summary"} {
+		if err := cmd.MarkFlagRequired(x); err != nil {
+			panic(err)
+		}
 	}
 
 	return cmd

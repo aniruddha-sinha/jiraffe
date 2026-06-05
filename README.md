@@ -28,3 +28,61 @@ go build -o jiraffe main.go
 
 # Optional: Move to your local bin for global access
 mv jiraffe /usr/local/bin/
+
+### Authentication
+
+```bash
+./bin/jiraffe-linux-x86_64 creds jira
+```
+* **Enter Atlassian registered email ->** `asinha0493@gmail.com`
+* **Click the link to generate API token:** [Generate API Token](https://id.atlassian.com/manage-profile/security/api-tokens)
+* **Enter API Token ->** `<your_api_token>`
+
+---
+
+### Create Issue
+
+```bash
+./bin/jiraffe-linux-x86_64 jira issue create \
+  -p "XCBDD" \
+  -s "Implement OAuth2" \
+  -d "Integrate Google login" \
+  -t "Story"
+```
+
+---
+
+### Get an Issue by Issue-Key
+
+```bash
+./bin/jiraffe-linux-x86_64 jira issue get -i xcbdd-8 
+```
+
+**For JSON output:**
+```bash
+./bin/jiraffe-linux-x86_64 jira issue list -p xcbdd --pages 1 --json
+```
+
+---
+
+### List Issues
+
+```bash
+./bin/jiraffe-linux-x86_64 jira issue list -p xcbdd --pages 1
+```
+
+---
+
+### List Projects
+
+```bash
+./bin/jiraffe-linux-x86_64 jira project list
+```
+
+---
+
+### Get Project
+
+```bash
+./bin/jiraffe-linux-x86_64 jira project get -p XCBDD
+```

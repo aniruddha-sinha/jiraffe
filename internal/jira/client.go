@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"time"
@@ -18,6 +19,7 @@ const (
 	urlTemplateListProjects      = "/rest/api/%s/project"
 	urlTemplateProjectSearch     = "/rest/api/%s/project/%s"
 	urlTemplateIssueGet          = "/rest/api/%s/issue/%s"
+	urlTemplateIssueCreate       = "/rest/api/%s/issue"
 )
 
 var (
@@ -67,19 +69,23 @@ func (c *Client) buildURLForQueryParams(pathTemplate string, pathArgs ...any) (*
 	return parsedURL, nil
 }
 
-func (c *Client) NewRequest(ctx context.Context, method, url string) (*http.Request, error) {
-	req, err := http.NewRequestWithContext(ctx, method, url, nil)
+func (c *Client) NewRequest(ctx context.Context, method, url string, body io.Reader) (*http.Request, error) {
+	req, err := http.NewRequestWithContext(ctx, method, url, body)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Add("Authorization", "Basic "+c.creds.EncodedAPIToken())
 	req.Header.Add("Accept", "application/json")
+	if body != nil {
+		req.Header.Add("Content-Type", "application/json")
+	}
+
 	return req, nil
 }
 
-func (c *Client) Do(ctx context.Context, method, url string) (*http.Response, error) {
-	request, err := c.NewRequest(ctx, method, url)
+func (c *Client) Do(ctx context.Context, method, url string, payload io.Reader) (*http.Response, error) {
+	request, err := c.NewRequest(ctx, method, url, payload)
 	if err != nil {
 		return nil, err
 	}
@@ -89,16 +95,17 @@ func (c *Client) Do(ctx context.Context, method, url string) (*http.Response, er
 		return nil, err
 	}
 
-	if err := mapStatusToError(response.StatusCode); err != nil {
+	if response.StatusCode >= 300 {
+		bodyBytes, _ := io.ReadAll(response.Body)
 		_ = response.Body.Close()
-		return nil, err
+		return nil, fmt.Errorf("jira API error (status %d): %s", response.StatusCode, string(bodyBytes))
 	}
 
 	return response, nil
 }
 
 func (c *Client) validateToken(ctx context.Context, validateTokenApiURL string) error {
-	request, err := c.NewRequest(ctx, http.MethodGet, validateTokenApiURL)
+	request, err := c.NewRequest(ctx, http.MethodGet, validateTokenApiURL, nil)
 	if err != nil {
 		return err
 	}
@@ -116,6 +123,7 @@ func (c *Client) validateToken(ctx context.Context, validateTokenApiURL string) 
 }
 
 func mapStatusToError(statusCode int) error {
+	fmt.Println(statusCode)
 	switch statusCode {
 	case http.StatusOK:
 		return nil
