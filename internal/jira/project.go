@@ -51,7 +51,7 @@ func (ps *ProjectService) List(ctx context.Context) ([]Project, error) {
 		return nil, err
 	}
 
-	response, err := ps.projectClient.Do(ctx, http.MethodGet, fullURL)
+	response, err := ps.projectClient.Do(ctx, http.MethodGet, fullURL, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +78,7 @@ func (ps *ProjectService) Get(ctx context.Context, projectKey string) (*Project,
 		return nil, err
 	}
 
-	response, err := ps.projectClient.Do(ctx, http.MethodGet, fullURL)
+	response, err := ps.projectClient.Do(ctx, http.MethodGet, fullURL, nil)
 	if err != nil {
 		return nil, err
 	}
