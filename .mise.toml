@@ -72,6 +72,9 @@ go build -o bin/jiraffe-$(uname -s | tr 'A-Z' 'a-z')-$(uname -m) .
 description = "Run the full pipeline: clean -> lint -> build"
 depends = ["clean", "lint", "critic", "build"]
 
+[settings]
+lockfile = true
+
 [env]
 HK_MISE=1
 GO111MODULE="on"
