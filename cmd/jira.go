@@ -177,6 +177,7 @@ func newCmdIssuesCreate() *cobra.Command {
 		teamID        string
 		sprintFieldID string // Dynamic key for Sprint
 		teamFieldID   string // Dynamic key for Team
+		parent        string
 		payload       *jira.CreateIssueRequest
 	)
 
@@ -193,11 +194,15 @@ func newCmdIssuesCreate() *cobra.Command {
 
 			// Populate dynamic fields if provided
 			if assignee != "" {
-				fields.Assignee = &jira.UserRef{ID: assignee}
+				fields.Assignee = jira.NewUserRef(assignee)
 			}
 
 			if reporter != "" {
-				fields.Reporter = &jira.UserRef{ID: reporter}
+				fields.Reporter = jira.NewUserRef(reporter)
+			}
+
+			if parent != "" {
+				fields.Parent = jira.NewParentRef(parent)
 			}
 
 			if sprintID != 0 && sprintFieldID != "" {
@@ -222,7 +227,12 @@ func newCmdIssuesCreate() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Successfully created issue: %s (%s)\n", res.Key, res.Self)
+			jsonFormatted, err := res.PrintJSON()
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("%s", jsonFormatted)
 			return nil
 		},
 	}
@@ -234,6 +244,7 @@ func newCmdIssuesCreate() *cobra.Command {
 	cmd.Flags().StringSliceVarP(&labels, "labels", "l", []string{}, "Comma-separated labels")
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "the user, the ticket in question has been assigned to")
 	cmd.Flags().StringVarP(&reporter, "reporter", "r", "", "the user who raises this ticket")
+	cmd.Flags().StringVar(&parent, "parent", "", "the parent ticket if subticket depends on it")
 
 	cmd.Flags().IntVar(&sprintID, "sprint", 0, "Sprint ID (numeric)")
 	cmd.Flags().StringVar(&teamID, "team", "", "Team ID (string)")

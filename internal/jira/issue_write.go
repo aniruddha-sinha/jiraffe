@@ -24,6 +24,7 @@ type CreateIssueFields struct {
 	Labels      []string     `json:"labels,omitempty"`
 	Assignee    *UserRef     `json:"assignee,omitempty"`
 	Reporter    *UserRef     `json:"reporter,omitempty"`
+	Parent      *ParentRef   `json:"parent,omitempty"`
 	/**
 	* a note about custom fields
 	* customField has basically two values, in this case team and sprint
@@ -74,10 +75,29 @@ func NewUserRef(userId string) *UserRef {
 	}
 }
 
+type ParentRef struct {
+	Key string `json:"Key"`
+}
+
+func NewParentRef(parentKey string) *ParentRef {
+	return &ParentRef{
+		Key: parentKey,
+	}
+}
+
 type IssueCreateResponse struct {
 	ID   string `json:"id"`
 	Key  string `json:"key"`
 	Self string `json:"self"`
+}
+
+func (icr *IssueCreateResponse) PrintJSON() (string, error) {
+	jsonFormatted, err := json.MarshalIndent(icr, "", " ")
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonFormatted), nil
 }
 
 func BuildADFDescription(text string) *adfDocument {
