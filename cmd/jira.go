@@ -50,9 +50,34 @@ func newCmdJira() *cobra.Command {
 	}
 
 	cmd.AddCommand(
+		newCmdInit(),
 		newCmdIssues(),
 		newCmdProjects(),
 	)
+
+	return cmd
+}
+
+func newCmdInit() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "init",
+		Short: "grab the custom fields from JIRA API and map custom fields",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			fmt.Println("fetching custom fields from JIRA workspace")
+
+			fieldClient := jira.NewFieldService(jira.NewClient(sharedJiraCreds))
+			fields, err := fieldClient.GetAll(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			for _, field := range fields {
+				fmt.Println(field.ID, "", field.Name)
+			}
+
+			return nil
+		},
+	}
 
 	return cmd
 }

@@ -20,6 +20,7 @@ const (
 	urlTemplateProjectSearch     = "/rest/api/%s/project/%s"
 	urlTemplateIssueGet          = "/rest/api/%s/issue/%s"
 	urlTemplateIssueCreate       = "/rest/api/%s/issue"
+	urlTemplateGetFields         = "/rest/api/%s/field"
 )
 
 var (
