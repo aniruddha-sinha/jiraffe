@@ -22,6 +22,8 @@ type CreateIssueFields struct {
 	Description *adfDocument `json:"description,omitempty"`
 	IssueType   IssueTypeRef `json:"issuetype"`
 	Labels      []string     `json:"labels,omitempty"`
+	Assignee    *UserRef     `json:"assignee,omitempty"`
+	Reporter    *UserRef     `json:"reporter,omitempty"`
 	/**
 	* a note about custom fields
 	* customField has basically two values, in this case team and sprint
@@ -59,6 +61,16 @@ type IssueTypeRef struct {
 func NewIssueTypeRef(name string) *IssueTypeRef {
 	return &IssueTypeRef{
 		Name: name,
+	}
+}
+
+type UserRef struct {
+	ID string `json:"id"`
+}
+
+func NewUserRef(userId string) *UserRef {
+	return &UserRef{
+		ID: userId,
 	}
 }
 
