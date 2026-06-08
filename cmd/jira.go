@@ -170,11 +170,14 @@ func newCmdIssuesCreate() *cobra.Command {
 		summary       string
 		description   string
 		issueType     string
+		assignee      string
+		reporter      string
 		labels        []string
 		sprintID      int
 		teamID        string
 		sprintFieldID string // Dynamic key for Sprint
 		teamFieldID   string // Dynamic key for Team
+		parent        string
 		payload       *jira.CreateIssueRequest
 	)
 
@@ -190,6 +193,18 @@ func newCmdIssuesCreate() *cobra.Command {
 			payload = jira.NewCreateIssueRequest(fields)
 
 			// Populate dynamic fields if provided
+			if assignee != "" {
+				fields.Assignee = jira.NewUserRef(assignee)
+			}
+
+			if reporter != "" {
+				fields.Reporter = jira.NewUserRef(reporter)
+			}
+
+			if parent != "" {
+				fields.Parent = jira.NewParentRef(parent)
+			}
+
 			if sprintID != 0 && sprintFieldID != "" {
 				payload.Fields.CustomFields[sprintFieldID] = sprintID
 			} else if sprintID != 0 && sprintFieldID == "" {
@@ -212,7 +227,12 @@ func newCmdIssuesCreate() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("Successfully created issue: %s (%s)\n", res.Key, res.Self)
+			jsonFormatted, err := res.PrintJSON()
+			if err != nil {
+				return err
+			}
+
+			fmt.Printf("%s", jsonFormatted)
 			return nil
 		},
 	}
@@ -222,16 +242,17 @@ func newCmdIssuesCreate() *cobra.Command {
 	cmd.Flags().StringVarP(&issueType, "type", "t", "Task", "Issue type (e.g., Bug, Task, Story)")
 	cmd.Flags().StringVarP(&description, "description", "d", "", "description")
 	cmd.Flags().StringSliceVarP(&labels, "labels", "l", []string{}, "Comma-separated labels")
+	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "the user, the ticket in question has been assigned to")
+	cmd.Flags().StringVarP(&reporter, "reporter", "r", "", "the user who raises this ticket")
+	cmd.Flags().StringVar(&parent, "parent", "", "the parent ticket if subticket depends on it")
 
-	// Values
 	cmd.Flags().IntVar(&sprintID, "sprint", 0, "Sprint ID (numeric)")
 	cmd.Flags().StringVar(&teamID, "team", "", "Team ID (string)")
 
-	// Dynamic Keys
 	cmd.Flags().StringVar(&sprintFieldID, "sprint-field-id", "", "The custom field key for Sprints in your Jira instance")
 	cmd.Flags().StringVar(&teamFieldID, "team-field-id", "", "The custom field key for Teams in your Jira instance")
 
-	for _, x := range []string{"project", "summary"} {
+	for _, x := range []string{"project", "summary", "reporter"} {
 		if err := cmd.MarkFlagRequired(x); err != nil {
 			panic(err)
 		}
