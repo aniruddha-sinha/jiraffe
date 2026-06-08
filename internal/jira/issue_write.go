@@ -66,7 +66,7 @@ func NewIssueTypeRef(name string) *IssueTypeRef {
 }
 
 type UserRef struct {
-	ID string `json:"id"`
+	ID string `json:"accountId"`
 }
 
 func NewUserRef(userId string) *UserRef {
