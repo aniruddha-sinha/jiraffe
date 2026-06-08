@@ -1,3 +1,7 @@
+[![jiraffe CI Pipeline](https://github.com/aniruddha-sinha/jiraffe/actions/workflows/ci.yaml/badge.svg)](https://github.com/aniruddha-sinha/jiraffe/actions/workflows/ci.yaml)
+
+[![Release](https://github.com/aniruddha-sinha/jiraffe/actions/workflows/release.yaml/badge.svg)](https://github.com/aniruddha-sinha/jiraffe/actions/workflows/release.yaml)
+
 # 🦒 Jiraffe
 
 **Jiraffe** is a fast, structured, and user-friendly Command Line Interface (CLI) for Atlassian Jira, written in Go. 
