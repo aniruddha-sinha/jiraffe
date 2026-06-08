@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/aniruddha-sinha/jiraffe/internal/config"
 	"github.com/aniruddha-sinha/jiraffe/internal/jira"
@@ -216,10 +217,19 @@ func newCmdIssuesCreate() *cobra.Command {
 			desc := jira.BuildADFDescription(description)
 			fields := jira.NewCreateIssueFields(*projectRef, summary, desc, *issueTypeRef, labels, make(map[string]any))
 			payload = jira.NewCreateIssueRequest(fields)
-
-			// Populate dynamic fields if provided
 			if assignee != "" {
-				fields.Assignee = jira.NewUserRef(assignee)
+				var targetID string
+				var err error
+				if strings.Contains(assignee, "@") {
+					targetID, err = jira.NewClient(sharedJiraCreds).ResolveEmailToAtlassianUserID(cmd.Context(), assignee)
+					if err != nil {
+						return err
+					}
+				} else {
+					targetID = assignee
+				}
+
+				payload.Fields.Assignee = jira.NewUserRef(targetID)
 			}
 
 			if reporter != "" {

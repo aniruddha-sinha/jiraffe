@@ -2,6 +2,7 @@ package jira
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -14,13 +15,14 @@ const (
 	apiVersion      = "3"
 	baseURLTemplate = "https://%s.atlassian.net"
 
-	urlTemplateValidateMyselfAPI = "/rest/api/%s/myself"
-	urlTemplateIssueSearchAPIJQL = "/rest/api/%s/search/jql"
-	urlTemplateListProjects      = "/rest/api/%s/project"
-	urlTemplateProjectSearch     = "/rest/api/%s/project/%s"
-	urlTemplateIssueGet          = "/rest/api/%s/issue/%s"
-	urlTemplateIssueCreate       = "/rest/api/%s/issue"
-	urlTemplateGetFields         = "/rest/api/%s/field"
+	urlTemplateValidateMyselfAPI          = "/rest/api/%s/myself"
+	urlTemplateIssueSearchAPIJQL          = "/rest/api/%s/search/jql"
+	urlTemplateListProjects               = "/rest/api/%s/project"
+	urlTemplateProjectSearch              = "/rest/api/%s/project/%s"
+	urlTemplateIssueGet                   = "/rest/api/%s/issue/%s"
+	urlTemplateIssueCreate                = "/rest/api/%s/issue"
+	urlTemplateGetFields                  = "/rest/api/%s/field"
+	urlTemplateSearchAtlassianUserByEmail = "/rest/api/%s/user/search"
 )
 
 var (
@@ -29,6 +31,18 @@ var (
 	ErrTokenReadFailure             = errors.New("failed to read token")
 	ErrAPITokenValidityVerification = errors.New("token validation failed")
 )
+
+type JiraUser struct {
+	AccountID   string `json:"accountId"`
+	DisplayName string `json:"displayName"`
+}
+
+func NewJiraUser(acctID, displayName string) *JiraUser {
+	return &JiraUser{
+		AccountID:   acctID,
+		DisplayName: displayName,
+	}
+}
 
 type Client struct {
 	httpClient *http.Client
@@ -124,7 +138,6 @@ func (c *Client) validateToken(ctx context.Context, validateTokenApiURL string) 
 }
 
 func mapStatusToError(statusCode int) error {
-	fmt.Println(statusCode)
 	switch statusCode {
 	case http.StatusOK:
 		return nil
@@ -133,4 +146,26 @@ func mapStatusToError(statusCode int) error {
 	default:
 		return ErrUnexpectedStatusCode
 	}
+}
+
+func (c *Client) ResolveEmailToAtlassianUserID(ctx context.Context, email string) (string, error) {
+	reqURL, err := c.buildURLForQueryParams(urlTemplateSearchAtlassianUserByEmail, apiVersion)
+	if err != nil {
+		return "", err
+	}
+
+	query := reqURL.Query()
+	query.Add("query", email)
+	reqURL.RawQuery = query.Encode()
+	response, err := c.Do(ctx, http.MethodGet, reqURL.String(), nil)
+	if err != nil {
+		return "", err
+	}
+
+	var jiraUser []JiraUser
+	if err := json.NewDecoder(response.Body).Decode(&jiraUser); err != nil {
+		return "", fmt.Errorf("failed to decode response : %w", err)
+	}
+
+	return jiraUser[0].AccountID, nil
 }
