@@ -3,17 +3,24 @@ package jira
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"net/http"
 	"strings"
 )
 
-var (
-	urlTemplateGetSprintDetails = "/rest/agile/1.0/board/%d/sprint"
+var urlTemplateGetSprintDetails = "/rest/agile/1.0/board/%d/sprint"
 
-	ErrOrgIDMissing = errors.New("organization ID is required to search for Atlassian Teams")
-)
+type JiraUser struct {
+	AccountID   string `json:"accountId"`
+	DisplayName string `json:"displayName"`
+}
+
+func NewJiraUser(acctID, displayName string) *JiraUser {
+	return &JiraUser{
+		AccountID:   acctID,
+		DisplayName: displayName,
+	}
+}
 
 type BoardResponse struct {
 	Values []struct {
@@ -29,16 +36,6 @@ type SprintResponse struct {
 		Name  string `json:"name"`
 		State string `json:"state"`
 	} `json:"values"`
-}
-
-type AtlassianTeam struct {
-	TeamID      string `json:"teamId"`
-	DisplayName string `json:"displayName"`
-}
-
-// TeamAPIResponse matches the Atlassian Gateway API pagination response
-type TeamAPIResponse struct {
-	Results []AtlassianTeam `json:"results"`
 }
 
 func (c *Client) ResolveEmailToAtlassianUserID(ctx context.Context, email string) (string, error) {

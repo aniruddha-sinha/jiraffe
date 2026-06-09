@@ -31,18 +31,6 @@ var (
 	ErrAPITokenValidityVerification = errors.New("token validation failed")
 )
 
-type JiraUser struct {
-	AccountID   string `json:"accountId"`
-	DisplayName string `json:"displayName"`
-}
-
-func NewJiraUser(acctID, displayName string) *JiraUser {
-	return &JiraUser{
-		AccountID:   acctID,
-		DisplayName: displayName,
-	}
-}
-
 type Client struct {
 	httpClient *http.Client
 	creds      *JiraCreds
