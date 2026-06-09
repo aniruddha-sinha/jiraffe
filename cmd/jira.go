@@ -3,6 +3,7 @@ package cmd
 import (
 	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/aniruddha-sinha/jiraffe/internal/config"
@@ -11,9 +12,12 @@ import (
 )
 
 var (
-	JiraConfigEmailKey        = "auth.jira.email"
-	JiraConfigOrgKey          = "auth.jira.org"
-	JiraConfigEncodedTokenKey = "auth.jira.encoded_token" // nolint:gosec // this is a config key and not an actual token
+	JiraConfigEmailKey             = "auth.jira.email"
+	JiraConfigOrgKey               = "auth.jira.org"
+	JiraConfigEncodedTokenKey      = "auth.jira.encoded_token" // nolint:gosec // this is a config key and not an actual token
+	JiraConfigSprintCustomFieldKey = "jira.customfields.sprint"
+	JiraConfigTeamCustomFieldKey   = "jira.customfields.team"
+	JiraGlobalOrgID                = "jira.global.org.id"
 )
 
 var sharedJiraCreds *jira.JiraCreds
@@ -73,9 +77,16 @@ func newCmdInit() *cobra.Command {
 			}
 
 			for _, field := range fields {
-				fmt.Println(field.ID, "", field.Name)
-			}
+				name := strings.ToLower(field.Name)
 
+				if name == "sprint" {
+					if err := config.Cfg.Upsert(JiraConfigSprintCustomFieldKey, field.ID); err != nil {
+						return err
+					}
+
+					fmt.Println("sprint custom field initialised in the config")
+				}
+			}
 			return nil
 		},
 	}
@@ -199,8 +210,7 @@ func newCmdIssuesCreate() *cobra.Command {
 		assignee      string
 		reporter      string
 		labels        []string
-		sprintID      int
-		teamID        string
+		sprintName    string
 		sprintFieldID string // Dynamic key for Sprint
 		teamFieldID   string // Dynamic key for Team
 		parent        string
@@ -218,6 +228,12 @@ func newCmdIssuesCreate() *cobra.Command {
 			desc := jira.BuildADFDescription(description)
 			fields := jira.NewCreateIssueFields(*projectRef, summary, desc, *issueTypeRef, labels, make(map[string]any))
 			payload = jira.NewCreateIssueRequest(fields)
+
+			sprintFieldID, err := config.Cfg.Get("jira.customfields.sprint")
+			if err != nil {
+				return err
+			}
+
 			if assignee != "" {
 				var targetID string
 				var err error
@@ -252,16 +268,23 @@ func newCmdIssuesCreate() *cobra.Command {
 				payload.Fields.Parent = jira.NewParentRef(parent)
 			}
 
-			if sprintID != 0 && sprintFieldID != "" {
-				payload.Fields.CustomFields[sprintFieldID] = sprintID
-			} else if sprintID != 0 && sprintFieldID == "" {
-				return fmt.Errorf("you provided a sprint ID but no --sprint-field-id")
-			}
+			if sprintName != "" {
+				if sprintFieldID == "" {
+					return fmt.Errorf("sprint field ID not found in config")
+				}
+				var finalSprintID int
 
-			if teamID != "" && teamFieldID != "" {
-				payload.Fields.CustomFields[teamFieldID] = teamID
-			} else if teamID != "" && teamFieldID == "" {
-				return fmt.Errorf("you provided a team ID but no --team-field-id")
+				if id, err := strconv.Atoi(sprintName); err == nil {
+					finalSprintID = id
+				} else {
+					// Hits the API dynamically! No config updates needed.
+					fmt.Printf("Resolving sprint name '%s' via Jira API...\n", sprintName)
+					finalSprintID, err = jira.NewClient(sharedJiraCreds).ResolveSprintNameToID(cmd.Context(), projectKey, sprintName)
+					if err != nil {
+						return err
+					}
+				}
+				payload.Fields.CustomFields[sprintFieldID] = finalSprintID
 			}
 
 			return nil
@@ -300,8 +323,7 @@ func newCmdIssuesCreate() *cobra.Command {
 	cmd.Flags().StringVarP(&reporter, "reporter", "r", "", "the user who raises this ticket")
 	cmd.Flags().StringVar(&parent, "parent", "", "the parent ticket if subticket depends on it")
 
-	cmd.Flags().IntVar(&sprintID, "sprint", 0, "Sprint ID (numeric)")
-	cmd.Flags().StringVar(&teamID, "team", "", "Team ID (string)")
+	cmd.Flags().StringVar(&sprintName, "sprint", "", "Sprint Name")
 
 	cmd.Flags().StringVar(&sprintFieldID, "sprint-field-id", "", "The custom field key for Sprints in your Jira instance")
 	cmd.Flags().StringVar(&teamFieldID, "team-field-id", "", "The custom field key for Teams in your Jira instance")

@@ -2,7 +2,6 @@ package jira
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -146,26 +145,4 @@ func mapStatusToError(statusCode int) error {
 	default:
 		return ErrUnexpectedStatusCode
 	}
-}
-
-func (c *Client) ResolveEmailToAtlassianUserID(ctx context.Context, email string) (string, error) {
-	reqURL, err := c.buildURLForQueryParams(urlTemplateSearchAtlassianUserByEmail, apiVersion)
-	if err != nil {
-		return "", err
-	}
-
-	query := reqURL.Query()
-	query.Add("query", email)
-	reqURL.RawQuery = query.Encode()
-	response, err := c.Do(ctx, http.MethodGet, reqURL.String(), nil)
-	if err != nil {
-		return "", err
-	}
-
-	var jiraUser []JiraUser
-	if err := json.NewDecoder(response.Body).Decode(&jiraUser); err != nil {
-		return "", fmt.Errorf("failed to decode response : %w", err)
-	}
-
-	return jiraUser[0].AccountID, nil
 }
