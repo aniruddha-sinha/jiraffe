@@ -76,7 +76,7 @@ func NewUserRef(userId string) *UserRef {
 }
 
 type ParentRef struct {
-	Key string `json:"Key"`
+	Key string `json:"key"`
 }
 
 func NewParentRef(parentKey string) *ParentRef {
@@ -93,6 +93,15 @@ type IssueCreateResponse struct {
 
 func (icr *IssueCreateResponse) PrintJSON() (string, error) {
 	jsonFormatted, err := json.MarshalIndent(icr, "", " ")
+	if err != nil {
+		return "", err
+	}
+
+	return string(jsonFormatted), nil
+}
+
+func (cir *CreateIssueRequest) PrintJSON() (string, error) {
+	jsonFormatted, err := json.MarshalIndent(cir, "", " ")
 	if err != nil {
 		return "", err
 	}

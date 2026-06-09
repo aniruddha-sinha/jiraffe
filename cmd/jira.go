@@ -205,6 +205,7 @@ func newCmdIssuesCreate() *cobra.Command {
 		teamFieldID   string // Dynamic key for Team
 		parent        string
 		payload       *jira.CreateIssueRequest
+		dryRun        bool
 	)
 
 	cmd := &cobra.Command{
@@ -233,11 +234,22 @@ func newCmdIssuesCreate() *cobra.Command {
 			}
 
 			if reporter != "" {
-				fields.Reporter = jira.NewUserRef(reporter)
+				var targetID string
+				var err error
+				if strings.Contains(assignee, "@") {
+					targetID, err = jira.NewClient(sharedJiraCreds).ResolveEmailToAtlassianUserID(cmd.Context(), reporter)
+					if err != nil {
+						return err
+					}
+				} else {
+					targetID = reporter
+				}
+
+				payload.Fields.Assignee = jira.NewUserRef(targetID)
 			}
 
 			if parent != "" {
-				fields.Parent = jira.NewParentRef(parent)
+				payload.Fields.Parent = jira.NewParentRef(parent)
 			}
 
 			if sprintID != 0 && sprintFieldID != "" {
@@ -256,18 +268,25 @@ func newCmdIssuesCreate() *cobra.Command {
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("create issue in %s\n", projectKey)
-			client := jira.NewIssueService(jira.NewClient(sharedJiraCreds))
-			res, err := client.Create(cmd.Context(), *payload)
-			if err != nil {
-				return err
+			if !dryRun {
+				client := jira.NewIssueService(jira.NewClient(sharedJiraCreds))
+				res, err := client.Create(cmd.Context(), *payload)
+				if err != nil {
+					return err
+				}
+
+				jsonFormatted, err := res.PrintJSON()
+				if err != nil {
+					return err
+				}
+
+				fmt.Printf("%s", jsonFormatted)
+			} else {
+				fmt.Println("--- DRY-RUN PAYLOAD OUTPUT---")
+				fmt.Println(payload.PrintJSON())
+				fmt.Println("---------------------")
 			}
 
-			jsonFormatted, err := res.PrintJSON()
-			if err != nil {
-				return err
-			}
-
-			fmt.Printf("%s", jsonFormatted)
 			return nil
 		},
 	}
@@ -286,6 +305,7 @@ func newCmdIssuesCreate() *cobra.Command {
 
 	cmd.Flags().StringVar(&sprintFieldID, "sprint-field-id", "", "The custom field key for Sprints in your Jira instance")
 	cmd.Flags().StringVar(&teamFieldID, "team-field-id", "", "The custom field key for Teams in your Jira instance")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "choose dry run if you want to see the payload before creating a ticket to not create a lot of tickets")
 
 	for _, x := range []string{"project", "summary", "reporter"} {
 		if err := cmd.MarkFlagRequired(x); err != nil {
