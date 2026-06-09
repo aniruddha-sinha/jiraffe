@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/aniruddha-sinha/jiraffe/internal/config"
 	"github.com/aniruddha-sinha/jiraffe/internal/jira"
@@ -10,9 +13,10 @@ import (
 )
 
 var (
-	JiraConfigEmailKey        = "auth.jira.email"
-	JiraConfigOrgKey          = "auth.jira.org"
-	JiraConfigEncodedTokenKey = "auth.jira.encoded_token" // nolint:gosec // this is a config key and not an actual token
+	JiraConfigEmailKey             = "auth.jira.email"
+	JiraConfigOrgKey               = "auth.jira.org"
+	JiraConfigEncodedTokenKey      = "auth.jira.encoded_token" // nolint:gosec // this is a config key and not an actual token
+	JiraConfigSprintCustomFieldKey = "jira.customfields.sprint"
 )
 
 var sharedJiraCreds *jira.JiraCreds
@@ -166,19 +170,10 @@ func newCmdIssuesGet() *cobra.Command {
 
 func newCmdIssuesCreate() *cobra.Command {
 	var (
-		projectKey    string
-		summary       string
-		description   string
-		issueType     string
-		assignee      string
-		reporter      string
-		labels        []string
-		sprintID      int
-		teamID        string
-		sprintFieldID string // Dynamic key for Sprint
-		teamFieldID   string // Dynamic key for Team
-		parent        string
-		payload       *jira.CreateIssueRequest
+		projectKey, summary, description, issueType, assignee, reporter, sprintName, parent string
+		labels                                                                              []string
+		payload                                                                             *jira.CreateIssueRequest
+		dryRun                                                                              bool
 	)
 
 	cmd := &cobra.Command{
@@ -186,41 +181,69 @@ func newCmdIssuesCreate() *cobra.Command {
 		Aliases: []string{"c"},
 		Short:   "create a new JIRA issue",
 		PreRunE: func(cmd *cobra.Command, args []string) error {
+			ctx := cmd.Context()
+			client := jira.NewClient(sharedJiraCreds)
+
+			// 1. Build Base Payload
 			projectRef := jira.NewProjectRef(projectKey)
 			issueTypeRef := jira.NewIssueTypeRef(issueType)
 			desc := jira.BuildADFDescription(description)
 			fields := jira.NewCreateIssueFields(*projectRef, summary, desc, *issueTypeRef, labels, make(map[string]any))
 			payload = jira.NewCreateIssueRequest(fields)
 
-			// Populate dynamic fields if provided
+			// 2. Resolve Users
 			if assignee != "" {
-				fields.Assignee = jira.NewUserRef(assignee)
+				targetID, err := resolveAccountID(ctx, client, assignee)
+				if err != nil {
+					return fmt.Errorf("failed to resolve assignee: %w", err)
+				}
+				payload.Fields.Assignee = jira.NewUserRef(targetID)
 			}
 
 			if reporter != "" {
-				fields.Reporter = jira.NewUserRef(reporter)
+				targetID, err := resolveAccountID(ctx, client, reporter)
+				if err != nil {
+					return fmt.Errorf("failed to resolve reporter: %w", err)
+				}
+				payload.Fields.Reporter = jira.NewUserRef(targetID)
 			}
 
+			// 3. Resolve Parent
 			if parent != "" {
-				fields.Parent = jira.NewParentRef(parent)
+				payload.Fields.Parent = jira.NewParentRef(parent)
 			}
 
-			if sprintID != 0 && sprintFieldID != "" {
-				payload.Fields.CustomFields[sprintFieldID] = sprintID
-			} else if sprintID != 0 && sprintFieldID == "" {
-				return fmt.Errorf("you provided a sprint ID but no --sprint-field-id")
-			}
+			// 4. Resolve Sprint (with JIT loading)
+			if sprintName != "" {
+				sprintFieldID, err := ensureSprintFieldID(ctx, client)
+				if err != nil {
+					return err
+				}
 
-			if teamID != "" && teamFieldID != "" {
-				payload.Fields.CustomFields[teamFieldID] = teamID
-			} else if teamID != "" && teamFieldID == "" {
-				return fmt.Errorf("you provided a team ID but no --team-field-id")
+				var finalSprintID int
+				if id, err := strconv.Atoi(sprintName); err == nil {
+					finalSprintID = id
+				} else {
+					fmt.Printf("Resolving sprint name '%s' via Jira API...\n", sprintName)
+					finalSprintID, err = client.ResolveSprintNameToID(ctx, projectKey, sprintName)
+					if err != nil {
+						return err
+					}
+				}
+				payload.Fields.CustomFields[sprintFieldID] = finalSprintID
 			}
 
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			fmt.Printf("create issue in %s\n", projectKey)
+			if dryRun {
+				fmt.Println("--- DRY-RUN PAYLOAD OUTPUT---")
+				fmt.Println(payload.PrintJSON())
+				fmt.Println("---------------------")
+				return nil
+			}
+
 			client := jira.NewIssueService(jira.NewClient(sharedJiraCreds))
 			res, err := client.Create(cmd.Context(), *payload)
 			if err != nil {
@@ -232,7 +255,7 @@ func newCmdIssuesCreate() *cobra.Command {
 				return err
 			}
 
-			fmt.Printf("%s", jsonFormatted)
+			fmt.Printf("%s\n", jsonFormatted)
 			return nil
 		},
 	}
@@ -245,14 +268,10 @@ func newCmdIssuesCreate() *cobra.Command {
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "the user, the ticket in question has been assigned to")
 	cmd.Flags().StringVarP(&reporter, "reporter", "r", "", "the user who raises this ticket")
 	cmd.Flags().StringVar(&parent, "parent", "", "the parent ticket if subticket depends on it")
+	cmd.Flags().StringVar(&sprintName, "sprint", "", "Sprint Name")
+	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "choose dry run if you want to see the payload before creating a ticket to not create a lot of tickets")
 
-	cmd.Flags().IntVar(&sprintID, "sprint", 0, "Sprint ID (numeric)")
-	cmd.Flags().StringVar(&teamID, "team", "", "Team ID (string)")
-
-	cmd.Flags().StringVar(&sprintFieldID, "sprint-field-id", "", "The custom field key for Sprints in your Jira instance")
-	cmd.Flags().StringVar(&teamFieldID, "team-field-id", "", "The custom field key for Teams in your Jira instance")
-
-	for _, x := range []string{"project", "summary", "reporter"} {
+	for _, x := range []string{"project", "summary", "reporter", "sprint"} {
 		if err := cmd.MarkFlagRequired(x); err != nil {
 			panic(err)
 		}
@@ -329,4 +348,41 @@ func newCmdProjectsGet() *cobra.Command {
 	}
 
 	return cmd
+}
+
+// resolveAccountID checks if the input is an email and fetches the Atlassian Account ID.
+// If it is already an ID (no '@'), it returns it directly.
+func resolveAccountID(ctx context.Context, client *jira.Client, input string) (string, error) {
+	if !strings.Contains(input, "@") {
+		return input, nil
+	}
+	return client.ResolveEmailToAtlassianUserID(ctx, input)
+}
+
+// ensureSprintFieldID lazy-loads the Sprint custom field ID.
+// It checks config first, and falls back to querying the Jira API if missing.
+func ensureSprintFieldID(ctx context.Context, client *jira.Client) (string, error) {
+	sprintFieldID, _ := config.Cfg.Get(JiraConfigSprintCustomFieldKey)
+	if sprintFieldID != "" {
+		return sprintFieldID, nil
+	}
+
+	fmt.Println("Sprint custom field not found in config. Fetching from Jira API...")
+	fieldClient := jira.NewFieldService(client)
+	jiraFields, err := fieldClient.GetAll(ctx)
+	if err != nil {
+		return "", fmt.Errorf("failed to fetch fields for initialization: %w", err)
+	}
+
+	for _, field := range jiraFields {
+		if strings.ToLower(field.Name) == "sprint" {
+			if err := config.Cfg.Upsert(JiraConfigSprintCustomFieldKey, field.ID); err != nil {
+				return "", fmt.Errorf("failed to save sprint field to config: %w", err)
+			}
+			fmt.Println("Sprint custom field successfully mapped and saved!")
+			return field.ID, nil
+		}
+	}
+
+	return "", fmt.Errorf("could not find a custom field named 'Sprint' in this Jira workspace")
 }

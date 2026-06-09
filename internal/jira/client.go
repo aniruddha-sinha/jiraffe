@@ -14,12 +14,14 @@ const (
 	apiVersion      = "3"
 	baseURLTemplate = "https://%s.atlassian.net"
 
-	urlTemplateValidateMyselfAPI = "/rest/api/%s/myself"
-	urlTemplateIssueSearchAPIJQL = "/rest/api/%s/search/jql"
-	urlTemplateListProjects      = "/rest/api/%s/project"
-	urlTemplateProjectSearch     = "/rest/api/%s/project/%s"
-	urlTemplateIssueGet          = "/rest/api/%s/issue/%s"
-	urlTemplateIssueCreate       = "/rest/api/%s/issue"
+	urlTemplateValidateMyselfAPI          = "/rest/api/%s/myself"
+	urlTemplateIssueSearchAPIJQL          = "/rest/api/%s/search/jql"
+	urlTemplateListProjects               = "/rest/api/%s/project"
+	urlTemplateProjectSearch              = "/rest/api/%s/project/%s"
+	urlTemplateIssueGet                   = "/rest/api/%s/issue/%s"
+	urlTemplateIssueCreate                = "/rest/api/%s/issue"
+	urlTemplateGetFields                  = "/rest/api/%s/field"
+	urlTemplateSearchAtlassianUserByEmail = "/rest/api/%s/user/search"
 )
 
 var (
@@ -123,7 +125,6 @@ func (c *Client) validateToken(ctx context.Context, validateTokenApiURL string) 
 }
 
 func mapStatusToError(statusCode int) error {
-	fmt.Println(statusCode)
 	switch statusCode {
 	case http.StatusOK:
 		return nil
