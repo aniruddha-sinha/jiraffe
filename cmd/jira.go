@@ -16,8 +16,6 @@ var (
 	JiraConfigOrgKey               = "auth.jira.org"
 	JiraConfigEncodedTokenKey      = "auth.jira.encoded_token" // nolint:gosec // this is a config key and not an actual token
 	JiraConfigSprintCustomFieldKey = "jira.customfields.sprint"
-	JiraConfigTeamCustomFieldKey   = "jira.customfields.team"
-	JiraGlobalOrgID                = "jira.global.org.id"
 )
 
 var sharedJiraCreds *jira.JiraCreds
@@ -203,19 +201,17 @@ func newCmdIssuesGet() *cobra.Command {
 
 func newCmdIssuesCreate() *cobra.Command {
 	var (
-		projectKey    string
-		summary       string
-		description   string
-		issueType     string
-		assignee      string
-		reporter      string
-		labels        []string
-		sprintName    string
-		sprintFieldID string // Dynamic key for Sprint
-		teamFieldID   string // Dynamic key for Team
-		parent        string
-		payload       *jira.CreateIssueRequest
-		dryRun        bool
+		projectKey  string
+		summary     string
+		description string
+		issueType   string
+		assignee    string
+		reporter    string
+		labels      []string
+		sprintName  string
+		parent      string
+		payload     *jira.CreateIssueRequest
+		dryRun      bool
 	)
 
 	cmd := &cobra.Command{
@@ -322,14 +318,9 @@ func newCmdIssuesCreate() *cobra.Command {
 	cmd.Flags().StringVarP(&assignee, "assignee", "a", "", "the user, the ticket in question has been assigned to")
 	cmd.Flags().StringVarP(&reporter, "reporter", "r", "", "the user who raises this ticket")
 	cmd.Flags().StringVar(&parent, "parent", "", "the parent ticket if subticket depends on it")
-
 	cmd.Flags().StringVar(&sprintName, "sprint", "", "Sprint Name")
-
-	cmd.Flags().StringVar(&sprintFieldID, "sprint-field-id", "", "The custom field key for Sprints in your Jira instance")
-	cmd.Flags().StringVar(&teamFieldID, "team-field-id", "", "The custom field key for Teams in your Jira instance")
 	cmd.Flags().BoolVar(&dryRun, "dry-run", false, "choose dry run if you want to see the payload before creating a ticket to not create a lot of tickets")
-
-	for _, x := range []string{"project", "summary", "reporter"} {
+	for _, x := range []string{"project", "summary", "reporter", "sprint"} {
 		if err := cmd.MarkFlagRequired(x); err != nil {
 			panic(err)
 		}
